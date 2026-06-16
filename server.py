@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone, date
 import bcrypt
 import jwt
 import math
+import cloudinary
+import cloudinary.uploader
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -26,6 +28,13 @@ db = client[os.environ['DB_NAME']]
 SECRET_KEY = os.environ.get('JWT_SECRET', 'tps-manager-secret-key-change-in-prod-gemerlap-2026')
 ALGORITHM = 'HS256'
 TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # 30 days for mobile
+
+# Cloudinary config
+cloudinary.config(
+  cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+  api_key = os.environ.get('CLOUDINARY_API_KEY', ''),
+  api_secret = os.environ.get('CLOUDINARY_API_SECRET', '')
+)
 
 app = FastAPI(title="TPS Manager API")
 api_router = APIRouter(prefix="/api")
@@ -103,6 +112,18 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return c * r
 
 
+def delete_cloudinary_image(url: str):
+    try:
+        if not url or "res.cloudinary.com" not in url: return
+        import cloudinary.uploader
+        parts = url.split('/')
+        if len(parts) >= 2:
+            public_id = parts[-2] + '/' + parts[-1].split('.')[0]
+            cloudinary.uploader.destroy(public_id)
+    except Exception as e:
+        print("Failed to delete cloudinary image", e)
+
+
 async def get_petugas_for_user(user_id: str) -> Optional[dict]:
     petugas = await db.petugas.find_one({'user_id': user_id})
     if not petugas:
@@ -142,8 +163,12 @@ async def update_daily_attendance(petugas_id: str, tanggal: str, user_id: str):
             total_seconds += s['durasi_detik']
             
     total_hours = total_seconds / 3600.0
-    # Capped at 8 hours and rounded to 2 decimal places
-    capped_hours = round(min(total_hours, 8.0), 2)
+    
+    # Capped at target_jam_kerja and rounded to 2 decimal places
+    setting = await db.settings.find_one({'key': 'target_jam_kerja'})
+    wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
+    target_jam = setting.get('jam', 8.0) if (setting and setting.get('tanggal') == wib_today) else 8.0
+    capped_hours = round(min(total_hours, target_jam), 2)
     
     if existing:
         await db.absensi.update_one(
@@ -238,7 +263,7 @@ class PilahanSave(BaseModel):
 
 class KeuanganCreate(BaseModel):
     tanggal: str
-    tipe: Literal['penjualan', 'sumber lain', 'pengeluaran']
+    tipe: Literal['penjualan', 'sumber lain', 'pengeluaran', 'retribusi']
     jenis_sampah_id: Optional[str] = None
     nama_pihak: Optional[str] = None
     bobot_kg: Optional[float] = None
@@ -246,6 +271,7 @@ class KeuanganCreate(BaseModel):
     total: float
     keterangan: Optional[str] = None
     kategori: Optional[str] = None
+    bukti_url: Optional[str] = None
 
 
 class AbsensiItem(BaseModel):
@@ -310,6 +336,21 @@ class GajiCreate(BaseModel):
     potongan: Optional[float] = 0
     total_bersih: float
     keterangan: Optional[str] = ''
+    bukti_url: Optional[str] = None
+
+class TargetJamKerjaReq(BaseModel):
+    jam: float
+
+class UploadImageReq(BaseModel):
+    base64_image: str
+
+@api_router.post('/upload-image')
+async def upload_image(req: UploadImageReq, creds: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        res = cloudinary.uploader.upload(req.base64_image, folder="gemerlap")
+        return {"url": res.get("secure_url")}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============== AUTH ==============
@@ -669,7 +710,7 @@ async def get_saldo(current=Depends(get_current_user)):
         }}
     ]
     res = await db.keuangan.aggregate(pipeline).to_list(10)
-    masuk = sum(r['total'] for r in res if r['_id'] in ('penjualan', 'sumber lain'))
+    masuk = sum(r['total'] for r in res if r['_id'] in ('penjualan', 'sumber lain', 'retribusi'))
     keluar = sum(r['total'] for r in res if r['_id'] == 'pengeluaran')
     return {'saldo': masuk - keluar, 'pemasukan': masuk, 'pengeluaran': keluar}
 
@@ -697,6 +738,9 @@ async def update_keuangan(kid: str, req: KeuanganCreate, current=Depends(get_cur
 
 @api_router.delete('/keuangan/{kid}')
 async def delete_keuangan(kid: str, current=Depends(get_current_user)):
+    doc = await db.keuangan.find_one({'id': kid})
+    if doc and doc.get('bukti_url'):
+        delete_cloudinary_image(doc['bukti_url'])
     await db.keuangan.delete_one({'id': kid})
     return {'message': 'deleted'}
 
@@ -894,6 +938,25 @@ async def save_tps_settings(req: TPSLocationSettings, current=Depends(admin_requ
     return {'message': 'Lokasi TPS berhasil diperbarui', 'data': req.dict()}
 
 
+@api_router.get('/settings/target-jam-kerja')
+async def get_target_jam_kerja(current=Depends(get_current_user)):
+    setting = await db.settings.find_one({'key': 'target_jam_kerja'}, {'_id': 0})
+    wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
+    target_jam = setting['jam'] if (setting and 'jam' in setting and setting.get('tanggal') == wib_today) else 8.0
+    return {'jam': target_jam}
+
+
+@api_router.post('/settings/target-jam-kerja')
+async def save_target_jam_kerja(req: TargetJamKerjaReq, current=Depends(admin_required)):
+    wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
+    await db.settings.update_one(
+        {'key': 'target_jam_kerja'},
+        {'$set': {'jam': req.jam, 'tanggal': wib_today, 'updated_at': now_iso()}},
+        upsert=True
+    )
+    return {'message': 'Target jam kerja berhasil diperbarui', 'data': req.dict()}
+
+
 @api_router.get('/tps-locations')
 async def list_tps_locations(current=Depends(get_current_user)):
     raw = await db.tps_locations.find({}, {'_id': 0}).sort('nama', 1).to_list(1000)
@@ -937,9 +1000,9 @@ async def update_tps_location(id: str, req: TPSLocationCreate, current=Depends(a
 @api_router.delete('/tps-locations/{id}')
 async def delete_tps_location(id: str, current=Depends(admin_required)):
     # Check if this location is used in active sessions
-    used = await db.attendance_sessions.find_one({'tps_location_id': id})
+    used = await db.attendance_sessions.find_one({'tps_location_id': id, 'status': 'active'})
     if used:
-        raise HTTPException(status_code=400, detail='Lokasi TPS tidak bisa dihapus karena memiliki riwayat absensi')
+        raise HTTPException(status_code=400, detail='Lokasi TPS tidak bisa dihapus karena masih ada petugas yang sedang bekerja di sini')
         
     res = await db.tps_locations.delete_one({'id': id})
     if res.deleted_count == 0:
@@ -984,6 +1047,10 @@ async def get_attendance_status(current=Depends(get_current_user)):
     
     daily_record = await db.absensi.find_one({'petugas_id': petugas_id, 'tanggal': tanggal_str}, {'_id': 0})
     
+    setting = await db.settings.find_one({'key': 'target_jam_kerja'})
+    wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
+    target_jam = setting.get('jam', 8.0) if (setting and setting.get('tanggal') == wib_today) else 8.0
+    
     return {
         'petugas_id': petugas_id,
         'nama_petugas': petugas['nama'],
@@ -992,7 +1059,8 @@ async def get_attendance_status(current=Depends(get_current_user)):
         'accumulated_hours_today': round(accumulated_seconds / 3600.0, 2),
         'running_hours': round(running_seconds / 3600.0, 2),
         'total_hours_today': round(total_today_hours, 2),
-        'capped_hours_today': round(min(total_today_hours, 8.0), 2),
+        'capped_hours_today': round(min(total_today_hours, target_jam), 2),
+        'target_jam_kerja': target_jam,
         'tanggal': tanggal_str,
         'daily_record': daily_record
     }
@@ -1091,15 +1159,8 @@ async def check_out(req: CheckOutRequest, request: Request, current=Depends(get_
     # Bypass if X-Test-Bypass: true is set (for testing purposes)
     is_test_bypass = request.headers.get("x-test-bypass") == "true"
 
-    # if durasi_seconds < 1800.0 and not is_test_bypass:
-    #     sisa_menit = math.ceil((1800.0 - durasi_seconds) / 60.0)
-    #     raise HTTPException(
-    #         status_code=400,
-    #         detail=f'Tidak dapat melakukan check-out. Minimal durasi sesi adalah 30 menit. Silakan tunggu {sisa_menit} menit lagi.'
-    #     )
-
-    if durasi_seconds < 60.0 and not is_test_bypass:
-        sisa_menit = math.ceil((60.0 - durasi_seconds) / 60.0)
+    if durasi_seconds < 1800.0 and not is_test_bypass:
+        sisa_menit = math.ceil((1800.0 - durasi_seconds) / 60.0)
         raise HTTPException(
             status_code=400,
             detail=f'Tidak dapat melakukan check-out. Minimal durasi sesi adalah 30 menit. Silakan tunggu {sisa_menit} menit lagi.'
@@ -1278,7 +1339,7 @@ async def dashboard_stats(bulan: Optional[str] = None, current=Depends(get_curre
     # Saldo
     pipeline_saldo = [{'$group': {'_id': '$tipe', 'total': {'$sum': '$total'}}}]
     rsaldo = await db.keuangan.aggregate(pipeline_saldo).to_list(10)
-    masuk = sum(r['total'] for r in rsaldo if r['_id'] in ('penjualan', 'sumber lain'))
+    masuk = sum(r['total'] for r in rsaldo if r['_id'] in ('penjualan', 'sumber lain', 'retribusi'))
     keluar = sum(r['total'] for r in rsaldo if r['_id'] == 'pengeluaran')
     saldo = masuk - keluar
 
@@ -1328,6 +1389,9 @@ async def delete_gaji(gid: str, current=Depends(admin_required)):
     if not gaji:
         raise HTTPException(status_code=404, detail='Slip gaji tidak ditemukan')
     
+    if gaji.get('bukti_url'):
+        delete_cloudinary_image(gaji['bukti_url'])
+    
     # 1. Hapus transaksi keuangan terkait
     if gaji.get('id_transaksi_keuangan'):
         await db.keuangan.delete_one({'id': gaji['id_transaksi_keuangan']})
@@ -1348,7 +1412,7 @@ async def create_gaji(req: GajiCreate, current=Depends(admin_required)):
     # Validasi Saldo
     pipeline_saldo = [{'$group': {'_id': '$tipe', 'total': {'$sum': '$total'}}}]
     rsaldo = await db.keuangan.aggregate(pipeline_saldo).to_list(10)
-    masuk = sum(r['total'] for r in rsaldo if r['_id'] in ('penjualan', 'sumber lain'))
+    masuk = sum(r['total'] for r in rsaldo if r['_id'] in ('penjualan', 'sumber lain', 'retribusi'))
     keluar = sum(r['total'] for r in rsaldo if r['_id'] == 'pengeluaran')
     saldo_saat_ini = masuk - keluar
 
@@ -1379,6 +1443,7 @@ async def create_gaji(req: GajiCreate, current=Depends(admin_required)):
         'total': req.total_bersih,
         'keterangan': keterangan,
         'kategori': 'Slip Gaji',
+        'bukti_url': req.bukti_url,
         'user_id': current['id'],
         'user_nama': current.get('nama'),
         'created_at': now_iso(),
