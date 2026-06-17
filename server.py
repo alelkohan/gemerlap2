@@ -27,7 +27,7 @@ db = client[os.environ['DB_NAME']]
 # JWT config
 SECRET_KEY = os.environ.get('JWT_SECRET', 'tps-manager-secret-key-change-in-prod-gemerlap-2026')
 ALGORITHM = 'HS256'
-TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # 30 days for mobile
+TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days for mobile
 
 # Cloudinary config
 cloudinary.config(
@@ -36,7 +36,11 @@ cloudinary.config(
   api_secret = os.environ.get('CLOUDINARY_API_SECRET', '')
 )
 
-app = FastAPI(title="TPS Manager API")
+app = FastAPI(
+    title="TPS Manager API",
+    docs_url=None,
+    redoc_url=None,
+)
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
 
@@ -375,8 +379,8 @@ async def change_password(req: ChangePasswordRequest, current=Depends(get_curren
     full = await db.users.find_one({'id': current['id']}, {'_id': 0})
     if not verify_password(req.current_password, full['password_hash']):
         raise HTTPException(status_code=400, detail='Password lama salah')
-    if len(req.new_password) < 6:
-        raise HTTPException(status_code=400, detail='Password baru minimal 6 karakter')
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail='Password baru minimal 8 karakter')
     await db.users.update_one({'id': current['id']}, {'$set': {'password_hash': hash_password(req.new_password)}})
     return {'message': 'Password berhasil diubah'}
 
@@ -390,6 +394,8 @@ async def list_users(current=Depends(admin_required)):
 
 @api_router.post('/users')
 async def create_user(req: UserCreate, current=Depends(admin_required)):
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail='Password minimal 8 karakter')
     existing = await db.users.find_one({'no_hp': req.no_hp})
     if existing:
         raise HTTPException(status_code=400, detail='Nomor HP sudah terdaftar')
@@ -1604,12 +1610,21 @@ async def startup_event():
 
 app.include_router(api_router)
 
+ALLOWED_ORIGINS = [
+    "https://129-226-195-175.nip.io",
+    "http://localhost:8081",
+    "http://localhost:8082",
+    "http://localhost:19006",
+    "http://localhost:19000",
+    "http://127.0.0.1:8081",
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
