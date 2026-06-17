@@ -896,18 +896,37 @@ async def get_unmarked_officers(tanggal: str = None, current=Depends(admin_requi
     all_petugas = await db.petugas.find({'status': True}, {'_id': 0, 'id': 1, 'nama': 1}).to_list(1000)
     if not all_petugas:
         return []
-    # Get petugas_ids that already have a record for this date
+    # Get petugas_ids that already have a daily record for this date
     existing_records = await db.absensi.find(
         {'tanggal': date_str},
         {'_id': 0, 'petugas_id': 1}
     ).to_list(1000)
     recorded_ids = {r['petugas_id'] for r in existing_records}
+
+    # Also exclude petugas who have an ACTIVE session (check-in but not yet check-out)
+    # They are clearly working, just haven't checked out yet
+    active_sessions = await db.attendance_sessions.find(
+        {'tanggal': date_str, 'status': 'active'},
+        {'_id': 0, 'petugas_id': 1}
+    ).to_list(1000)
+    active_ids = {s['petugas_id'] for s in active_sessions}
+
+    # Also exclude petugas who have completed sessions today (checked in at least once)
+    completed_sessions = await db.attendance_sessions.find(
+        {'tanggal': date_str, 'status': {'$in': ['completed', 'auto_checked_out']}},
+        {'_id': 0, 'petugas_id': 1}
+    ).to_list(1000)
+    completed_ids = {s['petugas_id'] for s in completed_sessions}
+
+    # Combine all IDs that should be excluded
+    exclude_ids = recorded_ids | active_ids | completed_ids
+
     # Deduplicate by id (guard against duplicate petugas docs in DB)
     seen_ids = set()
     unmarked = []
     for p in all_petugas:
         pid = p['id']
-        if pid not in recorded_ids and pid not in seen_ids:
+        if pid not in exclude_ids and pid not in seen_ids:
             seen_ids.add(pid)
             unmarked.append({'id': pid, 'nama': p['nama']})
     return sorted(unmarked, key=lambda x: x['nama'])
