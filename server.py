@@ -1630,6 +1630,8 @@ async def startup_event():
 app.include_router(api_router)
 
 ALLOWED_ORIGINS = [
+    "https://tps.griyabakpia.com",
+    "http://tps.griyabakpia.com",
     "https://129-226-195-175.nip.io",
     "http://localhost:8081",
     "http://localhost:8082",
