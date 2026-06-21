@@ -1518,6 +1518,113 @@ async def create_gaji(req: GajiCreate, current=Depends(admin_required)):
 
 
 # ============== LAPORAN ==============
+@api_router.get('/laporan/neraca-massa')
+async def laporan_neraca_massa(start: str, end: str, current=Depends(admin_required)):
+    items = await db.timbangan.find(
+        {'tanggal': {'$gte': start, '$lte': end}}, {'_id': 0}
+    ).to_list(50000)
+    
+    timbangan_ids = [it['id'] for it in items]
+    pilahan = await db.pilahan.find(
+        {'timbangan_id': {'$in': timbangan_ids}}, {'_id': 0}
+    ).to_list(50000)
+    
+    jenis = await db.jenis_sampah.find({}, {'_id': 0}).to_list(100)
+    jenis_map = {j['id']: j for j in jenis}
+    
+    monthly = {}
+    for it in items:
+        bulan = it['tanggal'][:7]
+        if bulan not in monthly:
+            monthly[bulan] = {
+                'bulan': bulan,
+                'sampah_masuk': 0.0,
+                'dikomposkan': 0.0,
+                'dijual': 0.0,
+                'residu': 0.0,
+                'lain': 0.0
+            }
+        monthly[bulan]['sampah_masuk'] += it.get('bobot_total', 0)
+        
+    for p in pilahan:
+        t_id = p['timbangan_id']
+        t_it = next((x for x in items if x['id'] == t_id), None)
+        if not t_it: continue
+        bulan = t_it['tanggal'][:7]
+        jid = p.get('jenis_sampah_id')
+        j_data = jenis_map.get(jid, {})
+        j_nama = j_data.get('nama', '').lower()
+        j_tipe = j_data.get('tipe', 'lain')
+        bobot = p.get('bobot', 0) or 0
+        
+        if 'kompos' in j_nama or 'organik' in j_nama:
+            monthly[bulan]['dikomposkan'] += bobot
+        elif j_tipe == 'komoditas' or 'jual' in j_nama or 'rongsok' in j_nama:
+            monthly[bulan]['dijual'] += bobot
+        elif j_tipe == 'bakar' or 'residu' in j_nama or 'tpa' in j_nama:
+            monthly[bulan]['residu'] += bobot
+        else:
+            monthly[bulan]['lain'] += bobot
+            
+    result = []
+    for k in sorted(monthly.keys()):
+        d = monthly[k]
+        masuk = d['sampah_masuk']
+        residu = d['residu'] + d['lain']
+        rf = ((masuk - residu) / masuk * 100) if masuk > 0 else 0
+        d['recovery_factor'] = round(rf, 2)
+        result.append(d)
+        
+    return result
+
+@api_router.get('/laporan/neraca-keuangan')
+async def laporan_neraca_keuangan(start: str, end: str, current=Depends(admin_required)):
+    items = await db.keuangan.find(
+        {'tanggal': {'$gte': start, '$lte': end}}, {'_id': 0}
+    ).to_list(50000)
+    
+    monthly = {}
+    for it in items:
+        bulan = it['tanggal'][:7]
+        if bulan not in monthly:
+            monthly[bulan] = {
+                'bulan': bulan,
+                'iuran': 0.0,
+                'penjualan': 0.0,
+                'distribusi_residu': 0.0,
+                'upah': 0.0,
+                'lain_masuk': 0.0,
+                'lain_keluar': 0.0,
+            }
+        
+        tipe = it['tipe']
+        total = it.get('total', 0)
+        kat = it.get('kategori', '').lower()
+        nama_pihak = it.get('nama_pihak', '').lower()
+        
+        if tipe == 'retribusi' or 'iuran' in kat or 'iuran' in nama_pihak:
+            monthly[bulan]['iuran'] += total
+        elif tipe == 'penjualan':
+            monthly[bulan]['penjualan'] += total
+        elif tipe == 'sumber lain':
+            monthly[bulan]['lain_masuk'] += total
+        elif tipe == 'pengeluaran':
+            if 'residu' in kat or 'tpa' in kat or 'distribusi' in kat:
+                monthly[bulan]['distribusi_residu'] += total
+            elif 'gaji' in kat or 'upah' in kat or 'honor' in kat:
+                monthly[bulan]['upah'] += total
+            else:
+                monthly[bulan]['lain_keluar'] += total
+                
+    result = []
+    for k in sorted(monthly.keys()):
+        d = monthly[k]
+        d['pemasukan_total'] = d['iuran'] + d['penjualan'] + d['lain_masuk']
+        d['pengeluaran_total'] = d['distribusi_residu'] + d['upah'] + d['lain_keluar']
+        d['sisa'] = d['pemasukan_total'] - d['pengeluaran_total']
+        result.append(d)
+    return result
+
 @api_router.get('/laporan/timbangan')
 async def laporan_timbangan(start: str, end: str, current=Depends(admin_required)):
     items = await db.timbangan.find(
