@@ -653,21 +653,21 @@ async def pilahan_summary(bulan: str, current=Depends(get_current_user)):
     ).to_list(5000)
     tid_set = {t['id'] for t in timbangan_ids}
     if not tid_set:
-        return {'recycle': 0.0, 'residu': 0.0, 'lain': 0.0}
+        return {'reuse': 0.0, 'reduce': 0.0, 'recycle': 0.0}
     pilahan = await db.pilahan.find(
         {'timbangan_id': {'$in': list(tid_set)}},
         {'_id': 0}
     ).to_list(10000)
-    totals = {'recycle': 0.0, 'residu': 0.0, 'lain': 0.0}
+    totals = {'reuse': 0.0, 'reduce': 0.0, 'recycle': 0.0}
     for p in pilahan:
         jid = p.get('jenis_sampah_id', '')
         bobot = p.get('bobot', 0) or 0
         if jid == 'Komoditas':
+            totals['reuse'] += bobot
+        elif jid == 'Bakar' or jid == 'Lain-lain':
+            totals['reduce'] += bobot
+        elif jid == 'Kompos':
             totals['recycle'] += bobot
-        elif jid == 'Bakar':
-            totals['residu'] += bobot
-        else:
-            totals['lain'] += bobot
     return {k: round(v, 2) for k, v in totals.items()}
 
 
@@ -1552,25 +1552,19 @@ async def laporan_neraca_massa(start: str, end: str, current=Depends(admin_requi
         if not t_it: continue
         bulan = t_it['tanggal'][:7]
         jid = p.get('jenis_sampah_id')
-        j_data = jenis_map.get(jid, {})
-        j_nama = j_data.get('nama', '').lower()
-        j_tipe = j_data.get('tipe', 'lain')
         bobot = p.get('bobot', 0) or 0
-        
-        if 'kompos' in j_nama or 'organik' in j_nama:
+        if jid == 'Kompos':
             monthly[bulan]['dikomposkan'] += bobot
-        elif j_tipe == 'komoditas' or 'jual' in j_nama or 'rongsok' in j_nama:
+        elif jid == 'Komoditas':
             monthly[bulan]['dijual'] += bobot
-        elif j_tipe == 'bakar' or 'residu' in j_nama or 'tpa' in j_nama:
+        elif jid == 'Bakar' or jid == 'Lain-lain':
             monthly[bulan]['residu'] += bobot
-        else:
-            monthly[bulan]['lain'] += bobot
             
     result = []
     for k in sorted(monthly.keys()):
         d = monthly[k]
         masuk = d['sampah_masuk']
-        residu = d['residu'] + d['lain']
+        residu = d['residu']
         rf = ((masuk - residu) / masuk * 100) if masuk > 0 else 0
         d['recovery_factor'] = round(rf, 2)
         result.append(d)
