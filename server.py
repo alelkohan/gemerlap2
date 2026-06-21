@@ -605,6 +605,7 @@ async def enrich_timbangan(item):
     """Add unit name and pilahan info"""
     unit = await db.units.find_one({'id': item.get('unit_id')}, {'_id': 0, 'nama': 1})
     item['unit_nama'] = unit['nama'] if unit else '-'
+    item['total_pilahan'] = item.get('total_pilahan', 0)
     return item
 
 
@@ -627,6 +628,7 @@ async def create_timbangan(req: TimbanganCreate, current=Depends(get_current_use
         'unit_id': req.unit_id,
         'bobot_total': req.bobot_total,
         'status_pilah': False,
+        'total_pilahan': 0,
         'user_id': current['id'],
         'created_at': now_iso(),
     }
@@ -639,7 +641,12 @@ async def create_timbangan(req: TimbanganCreate, current=Depends(get_current_use
 async def update_timbangan(tid: str, req: TimbanganCreate, current=Depends(get_current_user)):
     if req.bobot_total <= 0:
         raise HTTPException(status_code=400, detail='Bobot harus > 0')
-    await db.timbangan.update_one({'id': tid}, {'$set': req.dict()})
+    timb = await db.timbangan.find_one({'id': tid})
+    total_pilahan = timb.get('total_pilahan', 0) if timb else 0
+    status_pilah = total_pilahan >= req.bobot_total - 0.001
+    update_data = req.dict()
+    update_data['status_pilah'] = status_pilah
+    await db.timbangan.update_one({'id': tid}, {'$set': update_data})
     return {'message': 'updated'}
 
 
@@ -705,7 +712,7 @@ async def save_pilahan(tid: str, req: PilahanSave, current=Depends(get_current_u
         await db.pilahan.insert_many(docs)
     # Update status_pilah
     status_pilah = total_pilahan >= timb['bobot_total'] - 0.001
-    await db.timbangan.update_one({'id': tid}, {'$set': {'status_pilah': status_pilah}})
+    await db.timbangan.update_one({'id': tid}, {'$set': {'status_pilah': status_pilah, 'total_pilahan': total_pilahan}})
     return {'message': 'saved', 'status_pilah': status_pilah, 'total_pilahan': total_pilahan}
 
 
