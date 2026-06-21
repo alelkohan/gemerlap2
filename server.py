@@ -220,6 +220,8 @@ class UserCreate(BaseModel):
     no_hp: str
     password: str
     role: Literal['admin', 'petugas']
+    tanggal_bergabung: Optional[str] = None
+    tanggal_keluar: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
@@ -227,6 +229,8 @@ class UserUpdate(BaseModel):
     no_hp: Optional[str] = None
     role: Optional[Literal['admin', 'petugas']] = None
     password: Optional[str] = None
+    tanggal_bergabung: Optional[str] = None
+    tanggal_keluar: Optional[str] = None
 
 
 class UnitModel(BaseModel):
@@ -244,6 +248,7 @@ class PetugasModel(BaseModel):
     no_hp: Optional[str] = ''
     jabatan: Optional[str] = 'Petugas'
     tgl_bergabung: Optional[str] = None
+    tgl_keluar: Optional[str] = None
     foto_base64: Optional[str] = None
     status: bool = True
     user_id: Optional[str] = None
@@ -389,6 +394,18 @@ async def change_password(req: ChangePasswordRequest, current=Depends(get_curren
 @api_router.get('/users')
 async def list_users(current=Depends(admin_required)):
     users = await db.users.find({}, {'_id': 0, 'password_hash': 0}).to_list(1000)
+    
+    user_ids = [u['id'] for u in users]
+    petugas_list = await db.petugas.find({'id': {'$in': user_ids}}, {'_id': 0, 'id': 1, 'tgl_bergabung': 1, 'tgl_keluar': 1}).to_list(1000)
+    petugas_map = {p['id']: p for p in petugas_list}
+    
+    for u in users:
+        p_data = petugas_map.get(u['id'], {})
+        if not u.get('tanggal_bergabung'):
+            u['tanggal_bergabung'] = p_data.get('tgl_bergabung') or (u.get('created_at', '')[:10] if u.get('created_at') else '')
+        if not u.get('tanggal_keluar'):
+            u['tanggal_keluar'] = p_data.get('tgl_keluar')
+            
     return users
 
 
@@ -405,6 +422,8 @@ async def create_user(req: UserCreate, current=Depends(admin_required)):
         'no_hp': req.no_hp,
         'password_hash': hash_password(req.password),
         'role': req.role,
+        'tanggal_bergabung': req.tanggal_bergabung,
+        'tanggal_keluar': req.tanggal_keluar,
         'created_at': now_iso(),
     }
     await db.users.insert_one(user_doc)
@@ -415,8 +434,9 @@ async def create_user(req: UserCreate, current=Depends(admin_required)):
         'nama': user_doc['nama'],
         'no_hp': user_doc['no_hp'],
         'jabatan': 'Admin' if user_doc['role'] == 'admin' else 'Petugas',
-        'tgl_bergabung': datetime.now().strftime('%Y-%m-%d'),
-        'status': True,
+        'tgl_bergabung': req.tanggal_bergabung or datetime.now().strftime('%Y-%m-%d'),
+        'tgl_keluar': req.tanggal_keluar,
+        'status': not bool(req.tanggal_keluar),
         'user_id': user_doc['id'],
         'created_at': now_iso()
     }
@@ -429,17 +449,26 @@ async def create_user(req: UserCreate, current=Depends(admin_required)):
 async def update_user(user_id: str, req: UserUpdate, current=Depends(admin_required)):
     upd = {}
     petugas_upd = {}
-    if req.nama is not None:
+    update_data = req.dict(exclude_unset=True)
+    if 'nama' in update_data:
         upd['nama'] = req.nama
         petugas_upd['nama'] = req.nama
-    if req.no_hp is not None:
+    if 'no_hp' in update_data:
         upd['no_hp'] = req.no_hp
         petugas_upd['no_hp'] = req.no_hp
-    if req.role is not None:
+    if 'role' in update_data:
         upd['role'] = req.role
         petugas_upd['jabatan'] = 'Admin' if req.role == 'admin' else 'Petugas'
     if req.password:
         upd['password_hash'] = hash_password(req.password)
+    if 'tanggal_bergabung' in update_data:
+        upd['tanggal_bergabung'] = req.tanggal_bergabung
+        petugas_upd['tgl_bergabung'] = req.tanggal_bergabung
+    if 'tanggal_keluar' in update_data:
+        upd['tanggal_keluar'] = req.tanggal_keluar
+        petugas_upd['tgl_keluar'] = req.tanggal_keluar
+        petugas_upd['status'] = not bool(req.tanggal_keluar)
+
     if not upd:
         raise HTTPException(status_code=400, detail='Nothing to update')
     res = await db.users.update_one({'id': user_id}, {'$set': upd})
