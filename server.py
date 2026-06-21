@@ -605,7 +605,11 @@ async def enrich_timbangan(item):
     """Add unit name and pilahan info"""
     unit = await db.units.find_one({'id': item.get('unit_id')}, {'_id': 0, 'nama': 1})
     item['unit_nama'] = unit['nama'] if unit else '-'
-    item['total_pilahan'] = item.get('total_pilahan', 0)
+    if 'total_pilahan' not in item:
+        pilahan_docs = await db.pilahan.find({'timbangan_id': item['id']}, {'_id': 0, 'bobot': 1}).to_list(None)
+        total_p = sum(p.get('bobot', 0) for p in pilahan_docs)
+        item['total_pilahan'] = total_p
+        await db.timbangan.update_one({'id': item['id']}, {'$set': {'total_pilahan': total_p}})
     return item
 
 
