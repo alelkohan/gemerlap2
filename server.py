@@ -169,9 +169,15 @@ async def update_daily_attendance(petugas_id: str, tanggal: str, user_id: str):
     total_hours = total_seconds / 3600.0
     
     # Capped at target_jam_kerja and rounded to 2 decimal places
-    setting = await db.settings.find_one({'key': 'target_jam_kerja'})
+    user = await db.users.find_one({'id': user_id}, {'_id': 0})
+    target_obj = user.get('target_jam_kerja', {}) if user else {}
     wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
-    target_jam = setting.get('jam', 8.0) if (setting and setting.get('tanggal') == wib_today) else 8.0
+    target_jam = target_obj.get('jam', 8.0) if target_obj.get('tanggal') == wib_today else 8.0
+    
+    # Apply 5-minute tolerance (5/60 hours)
+    if total_hours < target_jam and (target_jam - total_hours) <= (5.0 / 60.0):
+        total_hours = target_jam
+        
     capped_hours = round(min(total_hours, target_jam), 2)
     
     if existing:
@@ -994,19 +1000,21 @@ async def save_tps_settings(req: TPSLocationSettings, current=Depends(admin_requ
 
 @api_router.get('/settings/target-jam-kerja')
 async def get_target_jam_kerja(current=Depends(get_current_user)):
-    setting = await db.settings.find_one({'key': 'target_jam_kerja'}, {'_id': 0})
+    user = await db.users.find_one({'id': current['id']}, {'_id': 0})
+    target_obj = user.get('target_jam_kerja', {})
     wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
-    target_jam = setting['jam'] if (setting and 'jam' in setting and setting.get('tanggal') == wib_today) else 8.0
+    target_jam = target_obj.get('jam', 8.0) if target_obj.get('tanggal') == wib_today else 8.0
     return {'jam': target_jam}
 
 
 @api_router.post('/settings/target-jam-kerja')
-async def save_target_jam_kerja(req: TargetJamKerjaReq, current=Depends(admin_required)):
+async def save_target_jam_kerja(req: TargetJamKerjaReq, current=Depends(get_current_user)):
+    if req.jam < 8.0:
+        raise HTTPException(status_code=400, detail='Target minimal adalah 8 jam')
     wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
-    await db.settings.update_one(
-        {'key': 'target_jam_kerja'},
-        {'$set': {'jam': req.jam, 'tanggal': wib_today, 'updated_at': now_iso()}},
-        upsert=True
+    await db.users.update_one(
+        {'id': current['id']},
+        {'$set': {'target_jam_kerja': {'jam': req.jam, 'tanggal': wib_today}}}
     )
     return {'message': 'Target jam kerja berhasil diperbarui', 'data': req.dict()}
 
