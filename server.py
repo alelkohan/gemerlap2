@@ -1599,8 +1599,8 @@ async def laporan_neraca_keuangan(start: str, end: str, current=Depends(admin_re
         
         tipe = it['tipe']
         total = it.get('total', 0)
-        kat = it.get('kategori', '').lower()
-        nama_pihak = it.get('nama_pihak', '').lower()
+        kat = (it.get('kategori') or '').lower()
+        nama_pihak = (it.get('nama_pihak') or '').lower()
         
         if tipe == 'retribusi' or 'iuran' in kat or 'iuran' in nama_pihak:
             monthly[bulan]['iuran'] += total
