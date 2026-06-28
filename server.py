@@ -289,6 +289,22 @@ class KeuanganCreate(BaseModel):
     bukti_url: Optional[str] = None
 
 
+class KeuanganBulkItem(BaseModel):
+    jenis_sampah_id: str
+    bobot_kg: float
+    harga_per_kg: float
+    total: float
+
+
+class KeuanganBulkCreate(BaseModel):
+    tanggal: str
+    tipe: Literal['penjualan']
+    nama_pihak: str
+    keterangan: Optional[str] = None
+    bukti_url: Optional[str] = None
+    items: List[KeuanganBulkItem]
+
+
 class AbsensiItem(BaseModel):
     petugas_id: str
     status: Literal['hadir', 'absen', 'izin', 'sakit']
@@ -782,6 +798,32 @@ async def create_keuangan(req: KeuanganCreate, current=Depends(get_current_user)
     return {k: v for k, v in doc.items() if k != '_id'}
 
 
+@api_router.post('/keuangan/bulk_penjualan')
+async def create_keuangan_bulk(req: KeuanganBulkCreate, current=Depends(get_current_user)):
+    no_invoice = await generate_invoice_no(req.tanggal)
+    docs = []
+    for item in req.items:
+        docs.append({
+            'id': new_id(),
+            'no_invoice': no_invoice,
+            'tanggal': req.tanggal,
+            'tipe': req.tipe,
+            'nama_pihak': req.nama_pihak,
+            'keterangan': req.keterangan,
+            'bukti_url': req.bukti_url,
+            'jenis_sampah_id': item.jenis_sampah_id,
+            'bobot_kg': item.bobot_kg,
+            'harga_per_kg': item.harga_per_kg,
+            'total': item.total,
+            'user_id': current['id'],
+            'user_nama': current.get('nama'),
+            'created_at': now_iso(),
+        })
+    if docs:
+        await db.keuangan.insert_many(docs)
+    return {'message': 'bulk insert success', 'no_invoice': no_invoice, 'count': len(docs)}
+
+
 @api_router.put('/keuangan/{kid}')
 async def update_keuangan(kid: str, req: KeuanganCreate, current=Depends(get_current_user)):
     await db.keuangan.update_one({'id': kid}, {'$set': req.dict()})
@@ -795,6 +837,43 @@ async def delete_keuangan(kid: str, current=Depends(get_current_user)):
         delete_cloudinary_image(doc['bukti_url'])
     await db.keuangan.delete_one({'id': kid})
     return {'message': 'deleted'}
+
+
+@api_router.delete('/keuangan/invoice/{no_invoice}')
+async def delete_keuangan_invoice(no_invoice: str, current=Depends(get_current_user)):
+    docs = await db.keuangan.find({'no_invoice': no_invoice}).to_list(100)
+    for doc in docs:
+        if doc.get('bukti_url'):
+            delete_cloudinary_image(doc['bukti_url'])
+    await db.keuangan.delete_many({'no_invoice': no_invoice})
+    return {'message': f'deleted invoice {no_invoice}'}
+
+
+
+@api_router.get('/keuangan/invoice/{no_invoice}')
+async def get_keuangan_invoice(no_invoice: str, current=Depends(get_current_user)):
+    docs = await db.keuangan.find({'no_invoice': no_invoice}, {'_id': 0}).to_list(100)
+    if not docs:
+        raise HTTPException(status_code=404, detail='Not found')
+    
+    # Enrich with jenis sampah name
+    for doc in docs:
+        if doc.get('jenis_sampah_id'):
+            jenis = await db.jenis_sampah.find_one({'id': doc['jenis_sampah_id']}, {'_id': 0, 'nama': 1})
+            doc['jenis_sampah_nama'] = jenis['nama'] if jenis else '-'
+    
+    base_doc = docs[0]
+    return {
+        'no_invoice': no_invoice,
+        'tanggal': base_doc['tanggal'],
+        'tipe': base_doc['tipe'],
+        'nama_pihak': base_doc.get('nama_pihak'),
+        'kategori': base_doc.get('kategori'),
+        'keterangan': base_doc.get('keterangan'),
+        'bukti_url': base_doc.get('bukti_url'),
+        'total': sum(d.get('total', 0) for d in docs),
+        'items': docs
+    }
 
 
 @api_router.get('/keuangan/{kid}')
