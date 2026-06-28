@@ -1090,10 +1090,9 @@ async def save_tps_settings(req: TPSLocationSettings, current=Depends(admin_requ
 
 @api_router.get('/settings/target-jam-kerja')
 async def get_target_jam_kerja(current=Depends(get_current_user)):
-    user = await db.users.find_one({'id': current['id']}, {'_id': 0})
-    target_obj = user.get('target_jam_kerja', {})
+    setting = await db.settings.find_one({'key': 'target_jam_kerja'})
     wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
-    target_jam = target_obj.get('jam', 8.0) if target_obj.get('tanggal') == wib_today else 8.0
+    target_jam = setting.get('jam', 8.0) if (setting and setting.get('tanggal') == wib_today) else 8.0
     return {'jam': target_jam}
 
 
@@ -1102,9 +1101,10 @@ async def save_target_jam_kerja(req: TargetJamKerjaReq, current=Depends(get_curr
     if req.jam < 8.0:
         raise HTTPException(status_code=400, detail='Target minimal adalah 8 jam')
     wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
-    await db.users.update_one(
-        {'id': current['id']},
-        {'$set': {'target_jam_kerja': {'jam': req.jam, 'tanggal': wib_today}}}
+    await db.settings.update_one(
+        {'key': 'target_jam_kerja'},
+        {'$set': {'jam': req.jam, 'tanggal': wib_today}},
+        upsert=True
     )
     return {'message': 'Target jam kerja berhasil diperbarui', 'data': req.dict()}
 
