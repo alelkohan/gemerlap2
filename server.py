@@ -839,7 +839,7 @@ async def delete_keuangan(kid: str, current=Depends(get_current_user)):
     return {'message': 'deleted'}
 
 
-@api_router.delete('/keuangan/invoice/{no_invoice}')
+@api_router.delete('/keuangan/invoice/{no_invoice:path}')
 async def delete_keuangan_invoice(no_invoice: str, current=Depends(get_current_user)):
     docs = await db.keuangan.find({'no_invoice': no_invoice}).to_list(100)
     for doc in docs:
@@ -850,7 +850,7 @@ async def delete_keuangan_invoice(no_invoice: str, current=Depends(get_current_u
 
 
 
-@api_router.get('/keuangan/invoice/{no_invoice}')
+@api_router.get('/keuangan/invoice/{no_invoice:path}')
 async def get_keuangan_invoice(no_invoice: str, current=Depends(get_current_user)):
     docs = await db.keuangan.find({'no_invoice': no_invoice}, {'_id': 0}).to_list(100)
     if not docs:
