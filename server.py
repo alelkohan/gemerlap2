@@ -375,8 +375,14 @@ class KasbonCreate(BaseModel):
     nominal: float
     keterangan: Optional[str] = None
 
-class TargetJamKerjaReq(BaseModel):
-    jam: float
+
+
+class LemburRequestCreate(BaseModel):
+    durasi_jam: float
+    alasan: str
+
+class LemburStatusUpdate(BaseModel):
+    status: str
 
 class UploadImageReq(BaseModel):
     base64_image: str
@@ -1094,26 +1100,6 @@ async def save_tps_settings(req: TPSLocationSettings, current=Depends(admin_requ
     return {'message': 'Lokasi TPS berhasil diperbarui', 'data': req.dict()}
 
 
-@api_router.get('/settings/target-jam-kerja')
-async def get_target_jam_kerja(current=Depends(get_current_user)):
-    setting = await db.settings.find_one({'key': 'target_jam_kerja'})
-    wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
-    target_jam = setting.get('jam', 8.0) if (setting and setting.get('tanggal') == wib_today) else 8.0
-    return {'jam': target_jam}
-
-
-@api_router.post('/settings/target-jam-kerja')
-async def save_target_jam_kerja(req: TargetJamKerjaReq, current=Depends(get_current_user)):
-    if req.jam < 8.0:
-        raise HTTPException(status_code=400, detail='Target minimal adalah 8 jam')
-    wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
-    await db.settings.update_one(
-        {'key': 'target_jam_kerja'},
-        {'$set': {'jam': req.jam, 'tanggal': wib_today}},
-        upsert=True
-    )
-    return {'message': 'Target jam kerja berhasil diperbarui', 'data': req.dict()}
-
 
 @api_router.get('/tps-locations')
 async def list_tps_locations(current=Depends(get_current_user)):
@@ -1612,6 +1598,102 @@ async def delete_kasbon(id: str, current=Depends(admin_required)):
     await db.kasbon.delete_one({'id': id})
     return {'message': 'Kasbon berhasil dihapus'}
 
+
+# ============== LEMBUR ==============
+@api_router.post('/lembur')
+async def create_lembur(req: LemburRequestCreate, current=Depends(get_current_user)):
+    petugas = await get_petugas_for_user(current['id'])
+    if not petugas:
+        raise HTTPException(status_code=403, detail="Hanya petugas yang bisa mengajukan lembur")
+        
+    wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
+    
+    lembur_doc = {
+        'id': new_id(),
+        'petugas_id': petugas['id'],
+        'nama_petugas': petugas['nama'],
+        'tanggal': wib_today,
+        'durasi_jam': req.durasi_jam,
+        'alasan': req.alasan,
+        'status': 'pending', # pending, approved, rejected
+        'created_at': now_iso()
+    }
+    await db.lembur.insert_one(lembur_doc)
+    return {'message': 'Pengajuan lembur berhasil dikirim', 'data': lembur_doc}
+
+@api_router.get('/lembur/pending')
+async def get_pending_lembur(current=Depends(admin_required)):
+    wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
+    # Can also fetch older pending if needed, but usually we just fetch all pending
+    requests = await db.lembur.find({'status': 'pending'}).sort('created_at', -1).to_list(1000)
+    for r in requests:
+        r.pop('_id', None)
+    return requests
+
+@api_router.get('/lembur/my')
+async def get_my_lembur(current=Depends(get_current_user)):
+    petugas = await get_petugas_for_user(current['id'])
+    if not petugas:
+        return []
+    requests = await db.lembur.find({'petugas_id': petugas['id']}).sort('created_at', -1).limit(20).to_list(100)
+    for r in requests:
+        r.pop('_id', None)
+    return requests
+
+@api_router.put('/lembur/{id}/status')
+async def update_lembur_status(id: str, req: LemburStatusUpdate, current=Depends(admin_required)):
+    if req.status not in ['approved', 'rejected']:
+        raise HTTPException(status_code=400, detail="Status tidak valid")
+        
+    lembur = await db.lembur.find_one({'id': id})
+    if not lembur:
+        raise HTTPException(status_code=404, detail="Data lembur tidak ditemukan")
+        
+    await db.lembur.update_one(
+        {'id': id},
+        {'$set': {'status': req.status, 'updated_at': now_iso(), 'decided_by': current['id']}}
+    )
+    
+    if req.status == 'approved':
+        # Update target_jam_kerja di users
+        user_id = current['id'] # Wait, user_id is the user who requested it!
+        # lembur has petugas_id. We need the user_id of that petugas.
+        petugas = await db.petugas.find_one({'id': lembur['petugas_id']})
+        if petugas and petugas.get('user_id'):
+            target_jam = 8.0 + lembur['durasi_jam']
+            await db.users.update_one(
+                {'id': petugas['user_id']},
+                {'$set': {
+                    'target_jam_kerja': {
+                        'jam': target_jam,
+                        'tanggal': lembur['tanggal']
+                    }
+                }}
+            )
+            
+            # Recalculate if there is already an absensi record for today
+            absensi = await db.absensi.find_one({'petugas_id': lembur['petugas_id'], 'tanggal': lembur['tanggal']})
+            if absensi and not absensi.get('manual'):
+                sessions = await db.attendance_sessions.find({
+                    'petugas_id': lembur['petugas_id'],
+                    'tanggal': lembur['tanggal'],
+                    'status': {'$in': ['completed', 'auto_checked_out']}
+                }).to_list(100)
+                
+                total_seconds = sum([s.get('durasi_detik', 0) for s in sessions])
+                total_hours = total_seconds / 3600.0
+                
+                # Apply 5-minute tolerance
+                if total_hours < target_jam and (target_jam - total_hours) <= (5.0 / 60.0):
+                    total_hours = target_jam
+                    
+                capped_hours = round(min(total_hours, target_jam), 2)
+                await db.absensi.update_one(
+                    {'id': absensi['id']},
+                    {'$set': {'jam': capped_hours}}
+                )
+
+    return {'message': f'Pengajuan lembur {req.status}'}
 
 # ============== GAJI & SLIP GAJI ==============
 @api_router.get('/gaji/{petugas_id}')
