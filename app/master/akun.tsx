@@ -43,10 +43,12 @@ export default function KelolaAkun() {
       const q = searchQuery.toLowerCase();
       result = result.filter((u) => u.nama.toLowerCase().includes(q) || u.no_hp.includes(q));
     }
-    // Sort: admin first, then petugas. If same role, sort by name
+    // Sort: auditor first, then admin, then petugas. If same role, sort by name
     return result.sort((a, b) => {
-      if (a.role === "admin" && b.role === "petugas") return -1;
-      if (a.role === "petugas" && b.role === "admin") return 1;
+      const roleWeight = { auditor: 1, admin: 2, petugas: 3 };
+      const wA = roleWeight[a.role] || 4;
+      const wB = roleWeight[b.role] || 4;
+      if (wA !== wB) return wA - wB;
       return a.nama.localeCompare(b.nama);
     });
   }, [items, searchQuery]);
