@@ -16,14 +16,32 @@ export default function MasterScreen() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
-  const menus: { icon: any; label: string; sub: string; path: string; color: string; adminOnly?: boolean }[] = [
-    { icon: "business-outline", label: "Unit", sub: "Kelola unit penugasan", path: "/master/unit", color: Colors.primary },
-    { icon: "leaf-outline", label: "Jenis Komoditas", sub: "Kelola jenis komoditas", path: "/master/jenis-sampah", color: Colors.success },
-    { icon: "people-outline", label: "Petugas", sub: "Data petugas TPS", path: "/master/petugas", color: Colors.info },
-    { icon: "calendar-outline", label: "Absensi", sub: "Input absensi harian", path: "/master/absensi", color: Colors.accent },
-    { icon: "stats-chart-outline", label: "Rekap Absensi", sub: "Rekap kehadiran bulanan", path: "/master/rekap-absensi", color: Colors.warning },
-    { icon: "shield-outline", label: "Kelola Akun", sub: "Akun & role pengguna", path: "/master/akun", color: Colors.error, adminOnly: true },
-    { icon: "document-outline", label: "Laporan", sub: "Cetak laporan PDF", path: "/master/laporan", color: Colors.primary, adminOnly: true },
+  const groupedMenus = [
+    {
+      title: "Kepegawaian",
+      items: [
+        { icon: "people-outline", label: "Petugas", sub: "Data petugas TPS", path: "/master/petugas", color: Colors.info },
+        { icon: "wallet-outline", label: "Pinjaman / Kasbon", sub: "Kelola kasbon petugas", path: "/master/kasbon", color: Colors.error },
+        { icon: "stats-chart-outline", label: "Rekap Absensi & Gaji", sub: "Kehadiran dan cetak slip gaji", path: "/master/rekap-absensi", color: Colors.warning, adminOnly: true },
+        { icon: "shield-outline", label: "Kelola Akun", sub: "Akun & role pengguna", path: "/master/akun", color: Colors.error, adminOnly: true },
+      ]
+    },
+    {
+      title: "Operasional & Laporan",
+      items: [
+        { icon: "wallet-outline", label: "Keuangan", sub: "Transaksi & saldo TPS", path: "/keuangan", color: Colors.accent },
+        { icon: "cart-outline", label: "Penjualan Komoditas", sub: "Riwayat penjualan", path: "/master/penjualan", color: Colors.success },
+        { icon: "document-outline", label: "Laporan", sub: "Cetak laporan PDF", path: "/master/laporan", color: Colors.primary, adminOnly: true },
+      ]
+    },
+    {
+      title: "Data Pokok",
+      items: [
+        { icon: "business-outline", label: "Unit", sub: "Kelola unit penugasan", path: "/master/unit", color: Colors.primary },
+        { icon: "leaf-outline", label: "Jenis Komoditas", sub: "Kelola jenis komoditas", path: "/master/jenis-sampah", color: Colors.success },
+        { icon: "location-outline", label: "Lokasi TPS", sub: "Kelola wilayah lokasi TPS", path: "/master/lokasi-tps", color: Colors.primary },
+      ]
+    }
   ];
 
   return (
@@ -32,39 +50,50 @@ export default function MasterScreen() {
         <Text style={styles.title}>Master Data</Text>
         <Text style={styles.subtitle}>Pengaturan & laporan</Text>
 
-        <View style={{ marginTop: 16, gap: 10 }}>
-          {menus.map((m) => {
-            const locked = m.adminOnly && !isAdmin;
-            return (
-              <TouchableOpacity
-                key={m.path}
-                disabled={locked}
-                activeOpacity={0.85}
-                onPress={() => router.push(m.path as any)}
-                testID={`master-${m.label.toLowerCase().replace(/\s+/g, "-")}`}
-              >
-                <Card style={{ opacity: locked ? 0.45 : 1 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                    <View style={[styles.iconBox, { backgroundColor: m.color + "20" }]}>
-                      <Ionicons name={m.icon} size={24} color={m.color} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={{ fontSize: 15, fontWeight: "700", color: Colors.text }}>{m.label}</Text>
-                        {locked && (
-                          <View style={styles.adminBadge}>
-                            <Text style={{ fontSize: 9, fontWeight: "700", color: Colors.textSecondary }}>ADMIN</Text>
+        <View style={{ marginTop: 16, gap: 24 }}>
+          {groupedMenus.map((group, groupIdx) => (
+            <View key={groupIdx}>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.textSecondary, marginBottom: 12, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {group.title}
+              </Text>
+              <View style={{ gap: 10 }}>
+                {group.items.map((m) => {
+                  const locked = m.adminOnly && !isAdmin;
+                  return (
+                    <TouchableOpacity
+                      key={m.path}
+                      disabled={locked}
+                      activeOpacity={0.85}
+                      onPress={() => router.push(m.path as any)}
+                      testID={`master-${m.label.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      <Card style={{ opacity: locked ? 0.45 : 1 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1 }}>
+                            <View style={[styles.iconBox, { backgroundColor: m.color + "20" }]}>
+                              <Ionicons name={m.icon as any} size={24} color={m.color} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                <Text style={{ fontSize: 15, fontWeight: "700", color: Colors.text }}>{m.label}</Text>
+                                {locked && (
+                                  <View style={styles.adminBadge}>
+                                    <Text style={{ fontSize: 9, fontWeight: "700", color: Colors.textSecondary }}>ADMIN</Text>
+                                  </View>
+                                )}
+                              </View>
+                              <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>{m.sub}</Text>
+                            </View>
                           </View>
-                        )}
-                      </View>
-                      <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>{m.sub}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
-                  </View>
-                </Card>
-              </TouchableOpacity>
-            );
-          })}
+                          <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+                        </View>
+                      </Card>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>

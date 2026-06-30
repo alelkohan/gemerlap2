@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { ScrollView, View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -10,9 +10,15 @@ import { useAuth } from "@/src/lib/auth-context";
 import { Colors } from "@/src/lib/theme";
 import { useColors } from "@/src/lib/theme-context";
 import { todayISO, formatTanggalID, currentBulan, bulanLabel } from "@/src/lib/format";
-import { generateLaporanTimbanganPdf, generateLaporanKeuanganPdf, generateLaporanAbsensiPdf } from "@/src/lib/pdf";
+import { generateLaporanTimbanganPdf, generateLaporanKeuanganPdf, generateLaporanAbsensiPdf, generateLaporanPenjualanPdf, generateLaporanNeracaMassaPdf } from "@/src/lib/pdf";
 
-type Jenis = "timbangan" | "keuangan" | "absensi";
+type Jenis = "timbangan" | "keuangan" | "absensi" | "penjualan" | "neraca";
+
+type JenisSampah = {
+  id: string;
+  nama: string;
+  tipe: string;
+};
 
 export default function LaporanScreen() {
   const Colors = useColors();
@@ -24,7 +30,62 @@ export default function LaporanScreen() {
   const [bulan, setBulan] = useState(currentBulan());
   const [loading, setLoading] = useState(false);
 
+  // Komoditas filter state
+  const [komoditasList, setKomoditasList] = useState<JenisSampah[]>([]);
+  const [selectedKomoditas, setSelectedKomoditas] = useState<Set<string>>(new Set());
+  const [loadingKomoditas, setLoadingKomoditas] = useState(false);
+
+  // Load daftar komoditas saat pilih penjualan
+  const loadKomoditas = useCallback(async () => {
+    setLoadingKomoditas(true);
+    try {
+      const list = await apiFetch<JenisSampah[]>("/jenis-sampah");
+      // Filter hanya tipe komoditas
+      const komoditas = list.filter((j) => j.tipe === "komoditas");
+      setKomoditasList(komoditas);
+      // Default: semua dipilih
+      setSelectedKomoditas(new Set(komoditas.map((k) => k.id)));
+    } catch (e: any) {
+      Alert.alert("Error", "Gagal memuat daftar komoditas: " + e.message);
+    } finally {
+      setLoadingKomoditas(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (jenis === "penjualan") {
+      loadKomoditas();
+    }
+  }, [jenis, loadKomoditas]);
+
+  const semuaDipilih = komoditasList.length > 0 && selectedKomoditas.size === komoditasList.length;
+  const sebagianDipilih = selectedKomoditas.size > 0 && !semuaDipilih;
+
+  const togglePilihSemua = () => {
+    if (semuaDipilih) {
+      setSelectedKomoditas(new Set());
+    } else {
+      setSelectedKomoditas(new Set(komoditasList.map((k) => k.id)));
+    }
+  };
+
+  const toggleKomoditas = (id: string) => {
+    setSelectedKomoditas((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const generate = async () => {
+    if (jenis === "penjualan" && selectedKomoditas.size === 0) {
+      Alert.alert("Perhatian", "Pilih minimal satu komoditas.");
+      return;
+    }
     setLoading(true);
     try {
       if (jenis === "timbangan") {
@@ -33,6 +94,17 @@ export default function LaporanScreen() {
       } else if (jenis === "keuangan") {
         const items = await apiFetch<any[]>(`/laporan/keuangan?start=${start}&end=${end}`);
         await generateLaporanKeuanganPdf(items, `${formatTanggalID(start)} - ${formatTanggalID(end)}`, user?.nama || "User");
+      } else if (jenis === "penjualan") {
+        // Kirim jenis_ids hanya jika tidak semua dipilih
+        let url = `/laporan/penjualan?start=${start}&end=${end}`;
+        if (!semuaDipilih) {
+          url += `&jenis_ids=${Array.from(selectedKomoditas).join(",")}`;
+        }
+        const data = await apiFetch<any>(url);
+        await generateLaporanPenjualanPdf(data, `${formatTanggalID(start)} - ${formatTanggalID(end)}`, user?.nama || "User");
+      } else if (jenis === "neraca") {
+        const items = await apiFetch<any[]>(`/laporan/neraca-massa?start=${start}&end=${end}`);
+        await generateLaporanNeracaMassaPdf(items, `${formatTanggalID(start)} - ${formatTanggalID(end)}`, user?.nama || "User");
       } else {
         const items = await apiFetch<any[]>(`/laporan/absensi?bulan=${bulan}`);
         await generateLaporanAbsensiPdf(items, bulanLabel(bulan), user?.nama || "User");
@@ -51,7 +123,9 @@ export default function LaporanScreen() {
         <View style={{ gap: 8, marginBottom: 16 }}>
           {([
             { id: "timbangan", icon: "scale", label: "Laporan Timbangan", sub: "Rekap berat masuk per unit" },
+            { id: "neraca", icon: "pie-chart", label: "Neraca Massa & Recovery Factor", sub: "Volume pilahan & efisiensi" },
             { id: "keuangan", icon: "wallet", label: "Laporan Keuangan", sub: "Pemasukan, pengeluaran, saldo" },
+            { id: "penjualan", icon: "cart", label: "Laporan Penjualan Komoditas", sub: "Rekap penjualan per komoditas" },
             { id: "absensi", icon: "calendar", label: "Laporan Absensi", sub: "Rekap kehadiran petugas" },
           ] as { id: Jenis; icon: any; label: string; sub: string }[]).map((j) => (
             <TouchableOpacity
@@ -105,6 +179,69 @@ export default function LaporanScreen() {
           </>
         )}
 
+        {/* Filter Komoditas — hanya tampil saat penjualan */}
+        {jenis === "penjualan" && (
+          <View style={{ marginTop: 4 }}>
+            <Text style={styles.label}>Filter Komoditas</Text>
+            <View style={styles.komoditasContainer}>
+              {loadingKomoditas ? (
+                <Text style={{ color: Colors.textSecondary, fontSize: 13, padding: 8 }}>Memuat komoditas...</Text>
+              ) : komoditasList.length === 0 ? (
+                <Text style={{ color: Colors.textSecondary, fontSize: 13, padding: 8 }}>Tidak ada komoditas tersedia.</Text>
+              ) : (
+                <>
+                  {/* Baris Pilih Semua */}
+                  <TouchableOpacity
+                    style={styles.checkboxRow}
+                    onPress={togglePilihSemua}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[
+                      styles.checkbox,
+                      (semuaDipilih || sebagianDipilih) && { borderColor: Colors.primary, backgroundColor: semuaDipilih ? Colors.primary : Colors.surface },
+                    ]}>
+                      {semuaDipilih && <Ionicons name="checkmark" size={14} color="#fff" />}
+                      {sebagianDipilih && (
+                        <View style={{ width: 8, height: 2, backgroundColor: Colors.primary, borderRadius: 2 }} />
+                      )}
+                    </View>
+                    <Text style={[styles.checkboxLabel, { fontWeight: "700", color: Colors.text }]}>
+                      Pilih Semua
+                    </Text>
+                    <Text style={styles.checkboxBadge}>
+                      {selectedKomoditas.size}/{komoditasList.length}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Divider */}
+                  <View style={{ height: 1, backgroundColor: Colors.borderLight, marginVertical: 4 }} />
+
+                  {/* Daftar Komoditas */}
+                  {komoditasList.map((k) => {
+                    const checked = selectedKomoditas.has(k.id);
+                    return (
+                      <TouchableOpacity
+                        key={k.id}
+                        style={styles.checkboxRow}
+                        onPress={() => toggleKomoditas(k.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[
+                          styles.checkbox,
+                          checked && { borderColor: Colors.primary, backgroundColor: Colors.primary },
+                        ]}>
+                          {checked && <Ionicons name="checkmark" size={14} color="#fff" />}
+                        </View>
+                        <Text style={[styles.checkboxLabel, { color: Colors.text }]}>{k.nama}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
         <View style={{ marginTop: 16 }}>
           <Button title="Generate & Share PDF" icon="document-text" onPress={generate} loading={loading} />
         </View>
@@ -134,4 +271,40 @@ const baseStyles = (Colors: any) => StyleSheet.create({
     marginBottom: 14,
   },
   bulanBtn: { padding: 8, borderRadius: 8, backgroundColor: Colors.borderLight },
+
+  // Komoditas filter styles
+  komoditasContainer: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    gap: 12,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 14,
+  },
+  checkboxBadge: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: "600",
+  },
 });

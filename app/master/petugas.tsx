@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 
 import { ScreenContainer } from "@/src/components/screen-header";
-import { Card, Button, Input, FAB, EmptyState, ConfirmDialog, PickerModal, Badge } from "@/src/components/ui";
+import { Card, Button, Input, FAB, EmptyState, ConfirmDialog, Badge } from "@/src/components/ui";
 import { DatePickerField } from "@/src/components/date-picker";
 import { apiFetch } from "@/src/lib/api";
 import { useAuth } from "@/src/lib/auth-context";
@@ -18,6 +18,7 @@ type Petugas = {
   jabatan?: string;
   tgl_bergabung?: string;
   status: boolean;
+  user_id?: string;
 };
 
 const JABATANS = [
@@ -39,12 +40,15 @@ export default function PetugasScreen() {
   const [jabatan, setJabatan] = useState("Petugas");
   const [tglBergabung, setTglBergabung] = useState(todayISO());
   const [status, setStatus] = useState(true);
-  const [showJabatan, setShowJabatan] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const p = await apiFetch<Petugas[]>("/petugas");
-    setItems(p);
+    try {
+      const p = await apiFetch<Petugas[]>("/petugas");
+      setItems(p);
+    } catch (e) {
+      console.warn("Failed to load petugas", e);
+    }
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -80,6 +84,7 @@ export default function PetugasScreen() {
         jabatan,
         tgl_bergabung: tglBergabung,
         status,
+        user_id: null,
       };
       if (editId) await apiFetch(`/petugas/${editId}`, { method: "PUT", body });
       else await apiFetch(`/petugas`, { method: "POST", body });
@@ -120,7 +125,7 @@ export default function PetugasScreen() {
                     {p.jabatan} • {p.no_hp || "-"}
                   </Text>
                 </View>
-                {isAdmin && (
+                {isAdmin && !p.user_id && (
                   <>
                     <TouchableOpacity onPress={() => openEdit(p)} style={{ padding: 8 }}>
                       <Ionicons name="create-outline" size={20} color={Colors.info} />
@@ -129,6 +134,11 @@ export default function PetugasScreen() {
                       <Ionicons name="trash-outline" size={20} color={Colors.error} />
                     </TouchableOpacity>
                   </>
+                )}
+                {isAdmin && p.user_id && (
+                  <View style={{ paddingHorizontal: 8 }} title="Terkunci oleh Sistem">
+                    <Ionicons name="lock-closed" size={16} color={Colors.textTertiary} />
+                  </View>
                 )}
               </View>
             </Card>
@@ -146,17 +156,30 @@ export default function PetugasScreen() {
               <Input label="Nama Lengkap" value={nama} onChangeText={setNama} />
               <Input label="Nomor HP" value={noHp} onChangeText={setNoHp} keyboardType="phone-pad" />
               <Text style={styles.label}>Jabatan</Text>
-              <TouchableOpacity onPress={() => setShowJabatan(true)} style={styles.pickerBtn}>
-                <Text style={{ flex: 1, color: Colors.text, fontSize: 15 }}>{jabatan}</Text>
-                <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
-              </TouchableOpacity>
-              <View style={{ marginTop: 14 }} />
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 4 }}>
+                {JABATANS.map((j) => (
+                  <TouchableOpacity
+                    key={j.id}
+                    onPress={() => setJabatan(j.id)}
+                    style={[
+                      styles.jabatanBtn,
+                      jabatan === j.id && { backgroundColor: Colors.primary, borderColor: Colors.primary },
+                    ]}
+                  >
+                    <Text style={[styles.jabatanBtnText, jabatan === j.id && { color: "#fff" }]}>
+                      {j.nama}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={{ marginTop: 10 }} />
               <DatePickerField label="Tanggal Bergabung" value={tglBergabung} onChange={setTglBergabung} />
               <TouchableOpacity onPress={() => setStatus(!status)} style={styles.toggle}>
                 <Ionicons name={status ? "checkbox" : "square-outline"} size={22} color={status ? Colors.primary : Colors.textSecondary} />
                 <Text style={{ fontSize: 14, color: Colors.text }}>Status Aktif</Text>
               </TouchableOpacity>
-              <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                 <View style={{ flex: 1 }}><Button title="Batal" variant="outline" onPress={() => setShow(false)} /></View>
                 <View style={{ flex: 1 }}><Button title="Simpan" onPress={save} /></View>
               </View>
@@ -165,7 +188,6 @@ export default function PetugasScreen() {
         </View>
       </Modal>
 
-      <PickerModal visible={showJabatan} title="Pilih Jabatan" items={JABATANS} selectedId={jabatan} onSelect={(j) => setJabatan(j.id)} onClose={() => setShowJabatan(false)} />
       <ConfirmDialog visible={!!deleteId} title="Hapus?" message="Data petugas akan dihapus permanen." onCancel={() => setDeleteId(null)} onConfirm={remove} />
     </ScreenContainer>
   );
@@ -176,16 +198,14 @@ const baseStyles = (Colors: any) => StyleSheet.create({
   modalCard: { backgroundColor: Colors.surface, borderRadius: 20, padding: 24, maxHeight: "85%" },
   modalTitle: { fontSize: 18, fontWeight: "800", color: Colors.text, marginBottom: 14 },
   label: { fontSize: 13, fontWeight: "600", color: Colors.text, marginBottom: 6 },
-  pickerBtn: {
+  jabatanBtn: {
+    flex: 1,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    flexDirection: "row",
+    borderRadius: 10,
+    paddingVertical: 10,
     alignItems: "center",
-    gap: 8,
   },
+  jabatanBtnText: { fontSize: 14, fontWeight: "600", color: Colors.textSecondary },
   toggle: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
 });

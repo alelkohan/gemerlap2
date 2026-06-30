@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import React, { ReactNode } from "react";
 import {
   View,
@@ -85,18 +85,32 @@ export function Input({
   label,
   error,
   containerStyle,
+  isPassword,
   ...rest
-}: TextInputProps & { label?: string; error?: string; containerStyle?: StyleProp<ViewStyle> }) {
+}: TextInputProps & { label?: string; error?: string; containerStyle?: StyleProp<ViewStyle>; isPassword?: boolean }) {
   const Colors = useColors();
   const styles = useMemo(() => baseStyles(Colors), [Colors]);
+  const [showPwd, setShowPwd] = useState(false);
   return (
     <View style={[{ marginBottom: 14 }, containerStyle]}>
       {label && <Text style={styles.inputLabel}>{label}</Text>}
-      <TextInput
-        placeholderTextColor={Colors.textTertiary}
-        {...rest}
-        style={[styles.input, error ? { borderColor: Colors.error } : null, rest.style]}
-      />
+      <View style={{ position: 'relative', justifyContent: 'center' }}>
+        <TextInput
+          placeholderTextColor={Colors.textTertiary}
+          {...rest}
+          secureTextEntry={isPassword ? !showPwd : rest.secureTextEntry}
+          style={[styles.input, error ? { borderColor: Colors.error } : null, rest.style, isPassword ? { paddingRight: 40 } : null]}
+        />
+        {isPassword && (
+          <TouchableOpacity 
+            onPress={() => setShowPwd(!showPwd)} 
+            style={{ position: 'absolute', right: 12, height: '100%', justifyContent: 'center' }}
+            hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}
+          >
+            <Ionicons name={showPwd ? "eye-off-outline" : "eye-outline"} size={20} color={Colors.textTertiary} />
+          </TouchableOpacity>
+        )}
+      </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
@@ -265,6 +279,40 @@ export function ConfirmDialog({
             </View>
             <View style={{ flex: 1 }}>
               <Button title={confirmText} variant={danger ? "danger" : "primary"} onPress={onConfirm} />
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+export function AlertDialog({
+  visible,
+  title,
+  message,
+  onConfirm,
+  confirmText = "OK",
+  variant = "primary",
+}: {
+  visible: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  confirmText?: string;
+  variant?: "primary" | "danger" | "outline";
+}) {
+  const Colors = useColors();
+  const styles = useMemo(() => baseStyles(Colors), [Colors]);
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onConfirm}>
+      <View style={styles.dialogBackdrop}>
+        <View style={styles.dialogBox}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: Colors.text, marginBottom: 8 }}>{title}</Text>
+          <Text style={{ fontSize: 14, color: Colors.textSecondary, marginBottom: 20 }}>{message}</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Button title={confirmText} variant={variant} onPress={onConfirm} />
             </View>
           </View>
         </View>

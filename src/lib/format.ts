@@ -4,6 +4,13 @@ export function rupiah(n: number | null | undefined): string {
   return "Rp " + num.toLocaleString("id-ID");
 }
 
+export function formatRupiahInput(value: string): string {
+  if (!value) return "";
+  const numberString = value.replace(/[^0-9]/g, "");
+  if (!numberString) return "";
+  return "Rp " + parseInt(numberString, 10).toLocaleString("id-ID");
+}
+
 const BULAN = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
   "Juli", "Agustus", "September", "Oktober", "November", "Desember",

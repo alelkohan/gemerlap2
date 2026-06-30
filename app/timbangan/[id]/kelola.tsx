@@ -31,9 +31,9 @@ export default function KelolaPilahan() {
       const cur = list.find((x) => x.id === id);
       setTimbangan(cur);
       setJenisList([
-        { id: "Bakar", nama: "Bakar", tipe: "bakar" },
-        { id: "Komoditas", nama: "Komoditas", tipe: "komoditas" },
-        { id: "Lain-lain", nama: "Lain-lain", tipe: "lain" },
+        { id: "Komoditas", nama: "Reuse (Komoditas)", tipe: "komoditas" },
+        { id: "Bakar", nama: "Reduce (Bakar)", tipe: "bakar" },
+        { id: "Kompos", nama: "Recycle (Kompos)", tipe: "komoditas" },
       ]);
       const map: Record<string, string> = {};
       for (const p of pilahan) {
@@ -68,9 +68,10 @@ export default function KelolaPilahan() {
     }
   };
 
-  const tipeBadge = (tipe: string) => {
-    if (tipe === "komoditas") return <Badge label="Komoditas" variant="success" small />;
-    if (tipe === "bakar") return <Badge label="Bakar" variant="error" small />;
+  const tipeBadge = (tipe: string, id: string) => {
+    if (id === "Komoditas") return <Badge label="Reuse" variant="info" small />;
+    if (id === "Bakar") return <Badge label="Reduce" variant="error" small />;
+    if (id === "Kompos") return <Badge label="Recycle" variant="success" small />;
     return <Badge label="Lain" variant="neutral" small />;
   };
 
@@ -122,7 +123,7 @@ export default function KelolaPilahan() {
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: "700", color: Colors.text, fontSize: 14 }}>{j.nama}</Text>
-                <View style={{ marginTop: 4, alignSelf: "flex-start" }}>{tipeBadge(j.tipe)}</View>
+                <View style={{ marginTop: 4, alignSelf: "flex-start" }}>{tipeBadge(j.tipe, j.id)}</View>
               </View>
               <View style={styles.bobotInput}>
                 <TextInput

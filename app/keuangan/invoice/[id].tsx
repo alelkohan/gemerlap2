@@ -19,7 +19,8 @@ export default function InvoiceScreen() {
 
   useEffect(() => {
     (async () => {
-      const data = await apiFetch<any>(`/keuangan/${id}`);
+      const decodedId = decodeURIComponent(id);
+      const data = await apiFetch<any>(`/keuangan/invoice/${decodedId}`);
       setTrx(data);
     })();
   }, [id]);
@@ -62,9 +63,24 @@ export default function InvoiceScreen() {
             {isPenjualan && (
               <>
                 <Row label="Nama Pembeli" value={trx.nama_pihak || "-"} />
-                <Row label="Jenis Komoditas" value={trx.jenis_sampah_nama || "-"} />
-                <Row label="Berat" value={`${trx.bobot_kg || 0} kg`} />
-                <Row label="Harga / kg" value={rupiah(trx.harga_per_kg || 0)} />
+                {trx.keterangan && <Row label="Keterangan" value={trx.keterangan} />}
+                
+                <View style={{ marginTop: 16, backgroundColor: Colors.surface, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: Colors.borderLight }}>
+                  <View style={{ flexDirection: 'row', backgroundColor: Colors.bg, padding: 8, borderBottomWidth: 1, borderBottomColor: Colors.borderLight }}>
+                    <Text style={{ flex: 2, fontSize: 11, fontWeight: '700', color: Colors.textSecondary }}>Komoditas</Text>
+                    <Text style={{ flex: 1, fontSize: 11, fontWeight: '700', color: Colors.textSecondary, textAlign: 'right' }}>Berat</Text>
+                    <Text style={{ flex: 1.5, fontSize: 11, fontWeight: '700', color: Colors.textSecondary, textAlign: 'right' }}>Harga/kg</Text>
+                    <Text style={{ flex: 1.5, fontSize: 11, fontWeight: '700', color: Colors.textSecondary, textAlign: 'right' }}>Subtotal</Text>
+                  </View>
+                  {(trx.items || []).map((it: any, i: number) => (
+                    <View key={i} style={{ flexDirection: 'row', padding: 8, borderBottomWidth: i === (trx.items?.length - 1) ? 0 : 1, borderBottomColor: Colors.borderLight }}>
+                      <Text style={{ flex: 2, fontSize: 12, color: Colors.text }}>{it.jenis_sampah_nama || "-"}</Text>
+                      <Text style={{ flex: 1, fontSize: 12, color: Colors.text, textAlign: 'right' }}>{it.bobot_kg} kg</Text>
+                      <Text style={{ flex: 1.5, fontSize: 12, color: Colors.text, textAlign: 'right' }}>{rupiah(it.harga_per_kg)}</Text>
+                      <Text style={{ flex: 1.5, fontSize: 12, color: Colors.text, textAlign: 'right', fontWeight: '600' }}>{rupiah(it.total)}</Text>
+                    </View>
+                  ))}
+                </View>
               </>
             )}
             {isSumberLain && <Row label="Sumber" value={trx.nama_pihak || "-"} />}
@@ -74,7 +90,7 @@ export default function InvoiceScreen() {
                 <Row label="Keperluan" value={trx.keterangan || "-"} />
               </>
             )}
-            {trx.keterangan && isPenjualan && <Row label="Keterangan" value={trx.keterangan} />}
+            {trx.keterangan && !isPenjualan && <Row label="Keterangan" value={trx.keterangan} />}
           </View>
 
           <View style={styles.totalBox}>

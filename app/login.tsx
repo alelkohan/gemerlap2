@@ -61,7 +61,7 @@ export default function LoginScreen() {
             <Image source={LOGO_IMG} style={styles.logo} resizeMode="contain" />
           </View>
 
-          <Text style={styles.appName}>TPS Manager</Text>
+          <Text style={styles.appName}>ASA Green</Text>
           <Text style={styles.appSub}>{ORG.name}</Text>
           <Text style={styles.org}>{ORG.org}</Text>
 

@@ -8,7 +8,11 @@ import {
   TouchableOpacity,
   Image,
   useWindowDimensions,
+  TextInput,
+  ActivityIndicator,
+  Platform,
 } from "react-native";
+import Animated, { LinearTransition, FadeIn, FadeOut, SpringConfig } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -19,7 +23,7 @@ import { apiFetch } from "@/src/lib/api";
 import { LOGO_IMG, Colors } from "@/src/lib/theme";
 import { useColors } from "@/src/lib/theme-context";
 import { rupiah, currentBulan, bulanLabel, addMonths, formatTanggalID } from "@/src/lib/format";
-import { Card, Badge, EmptyState } from "@/src/components/ui";
+import { Card, Badge, EmptyState, AlertDialog } from "@/src/components/ui";
 
 type Stats = {
   total_berat: number;
@@ -39,15 +43,74 @@ export default function HomeScreen() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [bulan, setBulan] = useState(currentBulan());
   const [refreshing, setRefreshing] = useState(false);
+  const [targetJamKerja, setTargetJamKerja] = useState("8");
+  const [isEditingTarget, setIsEditingTarget] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success">("idle");
+  const [neracaMassa, setNeracaMassa] = useState<any>(null);
+  const [neracaKeuangan, setNeracaKeuangan] = useState<any>(null);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    variant: "primary" | "danger" | "outline";
+    onConfirm?: () => void;
+  }>({ visible: false, title: "", message: "", variant: "primary" });
 
   const load = useCallback(async () => {
     try {
       const data = await apiFetch<Stats>(`/dashboard/stats?bulan=${bulan}`);
       setStats(data);
+      if (user?.role === "admin") {
+        const targetData = await apiFetch<{jam: number}>(`/settings/target-jam-kerja`);
+        if (targetData && targetData.jam) setTargetJamKerja(String(targetData.jam));
+      }
+      
+      const massaData = await apiFetch<any[]>(`/laporan/neraca-massa?start=${bulan}-01&end=${bulan}-31`);
+      if (massaData && massaData.length > 0) {
+        setNeracaMassa(massaData[0]);
+      } else {
+        setNeracaMassa(null);
+      }
+      
+      const uangData = await apiFetch<any[]>(`/laporan/neraca-keuangan?start=${bulan}-01&end=${bulan}-31`);
+      if (uangData && uangData.length > 0) {
+        setNeracaKeuangan(uangData[0]);
+      } else {
+        setNeracaKeuangan(null);
+      }
     } catch (e) {
       console.warn(e);
     }
-  }, [bulan]);
+  }, [bulan, user?.role]);
+
+  const saveTarget = async () => {
+    setSaveStatus("saving");
+    const val = parseFloat(targetJamKerja);
+    if (isNaN(val) || val < 8.0) {
+      setAlertConfig({
+        visible: true,
+        title: "Perhatian",
+        message: "Target kerja minimal adalah 8 jam.",
+        variant: "danger"
+      });
+      setSaveStatus("idle");
+      setTargetJamKerja("8");
+      return;
+    }
+    
+    try {
+      await apiFetch(`/settings/target-jam-kerja`, {
+        method: 'POST',
+        body: { jam: val }
+      });
+      setIsEditingTarget(false);
+      setSaveStatus("success");
+      setTimeout(() => setSaveStatus("idle"), 2500);
+    } catch (e) {
+      console.warn(e);
+      setSaveStatus("idle");
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -73,7 +136,7 @@ export default function HomeScreen() {
             <Image source={LOGO_IMG} style={{ width: 44, height: 44 }} resizeMode="contain" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>Assalamu'alaikum,</Text>
+            <Text style={styles.greeting}>{"Assalamu'alaikum,"}</Text>
             <Text style={styles.userName}>{user?.nama}</Text>
           </View>
           <Badge
@@ -81,6 +144,114 @@ export default function HomeScreen() {
             variant={user?.role === "admin" ? "success" : "info"}
           />
         </View>
+
+        {/* Target Kerja Khusus Petugas */}
+        <View style={{ marginBottom: 16 }}>
+            <Card style={{ padding: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <Ionicons name="time" size={16} color={Colors.primary} />
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.textSecondary }}>Target Kerja Hari Ini</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
+                  {isEditingTarget ? (
+                    <TextInput 
+                      value={targetJamKerja}
+                      onChangeText={setTargetJamKerja}
+                      keyboardType="numeric"
+                      autoFocus
+                      style={{ fontSize: 36, fontWeight: "800", color: Colors.primary, padding: 0, margin: 0, borderBottomWidth: 2, borderColor: Colors.primary, width: 60, textAlign: "center" }}
+                    />
+                  ) : (
+                    <View style={{ width: 60, alignItems: "center", borderBottomWidth: 2, borderColor: "transparent" }}>
+                      <Text style={{ fontSize: 36, fontWeight: "800", color: Colors.primary }}>{targetJamKerja}</Text>
+                    </View>
+                  )}
+                  <Text style={{ fontSize: 16, fontWeight: "600", color: Colors.textSecondary, marginBottom: 6 }}>Jam</Text>
+                </View>
+              </View>
+              <Animated.View 
+                layout={LinearTransition.springify().damping(26).stiffness(200).mass(0.8)} 
+                style={{ flexDirection: "row", gap: 8 }}
+              >
+                {isEditingTarget && (
+                  <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
+                    <TouchableOpacity 
+                      disabled={saveStatus === "saving"}
+                      onPress={() => setIsEditingTarget(false)}
+                      style={{ backgroundColor: Colors.error + '15', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, alignItems: "center", justifyContent: "center" }}
+                    >
+                      <Text style={{ color: Colors.error, fontWeight: "700", fontSize: 14 }}>Batal</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
+                )}
+                <Animated.View layout={LinearTransition.springify().damping(26).stiffness(300).mass(0.8)}>
+                  <TouchableOpacity 
+                    disabled={saveStatus === "saving" || saveStatus === "success"}
+                    onPress={() => {
+                      if (isEditingTarget) {
+                        saveTarget();
+                      } else {
+                        setIsEditingTarget(true);
+                      }
+                    }}
+                    style={{ backgroundColor: saveStatus === "success" ? Colors.success : (isEditingTarget ? Colors.success + '15' : Colors.primary + '15'), width: 90, paddingVertical: 10, borderRadius: 24, alignItems: "center", justifyContent: "center" }}
+                  >
+                    {saveStatus === "saving" ? (
+                      <ActivityIndicator size="small" color={Colors.success} />
+                    ) : saveStatus === "success" ? (
+                      <Ionicons name="checkmark" size={18} color="#fff" />
+                    ) : (
+                      <Text style={{ color: isEditingTarget ? Colors.success : Colors.primary, fontWeight: "700", fontSize: 14 }}>
+                        {isEditingTarget ? "Simpan" : "Edit"}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
+              </Animated.View>
+            </Card>
+          </View>
+
+        {/* Neraca Massa & Recovery Factor Widget */}
+        {user?.role === "admin" && (
+          <Card style={{ marginBottom: 16, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.primary + '40' }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="pie-chart" size={18} color={Colors.primary} />
+                <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.text }}>Performa Bulan Ini</Text>
+              </View>
+              <Badge label="Recovery Factor" variant="info" />
+            </View>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <View style={{ flex: 1, backgroundColor: Colors.primary + '10', padding: 12, borderRadius: 12 }}>
+                <Text style={{ fontSize: 11, color: Colors.textSecondary, marginBottom: 2 }}>Recovery Factor</Text>
+                <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.primary }}>{(neracaMassa?.recovery_factor || 0).toFixed(2)}%</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: Colors.success + '10', padding: 12, borderRadius: 12 }}>
+                <Text style={{ fontSize: 11, color: Colors.textSecondary, marginBottom: 2 }}>Laba Bulan Ini</Text>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: Colors.success }} adjustsFontSizeToFit numberOfLines={1}>{rupiah(neracaKeuangan?.sisa || 0)}</Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: "row", marginTop: 12, borderTopWidth: 1, borderColor: Colors.borderLight, paddingTop: 12, gap: 4 }}>
+               <View style={{ flex: 1 }}>
+                 <Text style={{ fontSize: 10, color: Colors.textSecondary }}>Masuk</Text>
+                 <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.text }}>{(neracaMassa?.sampah_masuk || 0).toFixed(1)} kg</Text>
+               </View>
+               <View style={{ flex: 1 }}>
+                 <Text style={{ fontSize: 10, color: Colors.textSecondary }}>Kompos</Text>
+                 <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.text }}>{(neracaMassa?.dikomposkan || 0).toFixed(1)} kg</Text>
+               </View>
+               <View style={{ flex: 1 }}>
+                 <Text style={{ fontSize: 10, color: Colors.textSecondary }}>Dijual</Text>
+                 <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.text }}>{(neracaMassa?.dijual || 0).toFixed(1)} kg</Text>
+               </View>
+               <View style={{ flex: 1 }}>
+                 <Text style={{ fontSize: 10, color: Colors.textSecondary }}>Residu</Text>
+                 <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.error }}>{((neracaMassa?.residu || 0) + (neracaMassa?.lain || 0)).toFixed(1)} kg</Text>
+               </View>
+            </View>
+          </Card>
+        )}
 
         {/* Stat cards */}
         <View style={styles.statGrid}>
@@ -168,7 +339,19 @@ export default function HomeScreen() {
             ))
           )}
         </View>
+          {/* Extra padding for tab bar */}<View style={{ height: 80 }} />
       </ScrollView>
+      
+      <AlertDialog
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        variant={alertConfig.variant as any}
+        onConfirm={() => {
+          setAlertConfig(prev => ({ ...prev, visible: false }));
+          if (alertConfig.onConfirm) alertConfig.onConfirm();
+        }}
+      />
     </SafeAreaView>
   );
 }

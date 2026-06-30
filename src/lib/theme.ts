@@ -64,19 +64,21 @@ export const Colors = LIGHT_COLORS;
 // Use relative path for reliability
 export const LOGO_IMG = require("../../assets/images/logo_gemerlap.png");
 
-// Resolve URI safely to avoid initialization crashes
+// Resolve URI safely to avoid initialization crashes on web SSR
 let resolvedLogoUrl = "";
 try {
-  resolvedLogoUrl = Image.resolveAssetSource(LOGO_IMG)?.uri || "";
+  if (typeof Image.resolveAssetSource === "function") {
+    resolvedLogoUrl = Image.resolveAssetSource(LOGO_IMG)?.uri || "";
+  }
 } catch (e) {
-  console.error("Failed to resolve logo URI:", e);
+  // Silently ignore on web SSR environment
 }
 
 export const LOGO_URL = resolvedLogoUrl;
 
 export const ORG = {
-  name: "TPS Assalafiyyah Terpadu",
+  name: "TPS3R Assalafiyyah",
   alamat:
     "Jl. Kiai Masduqi Mlangi, Mlangi, Nogotirto, Kec. Gamping, Kab. Sleman, DIY 55592",
-  org: "Gemerlap (Gerakan Melestarikan Lingkungan Pesantren)",
+  org: "Unit Pengelolaan Sampah Assalafiyyah Terpadu",
 };

@@ -6,6 +6,7 @@ import { useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/src/components/screen-header";
 import { Card, Button, Input, FAB, EmptyState, ConfirmDialog, Badge, PickerModal } from "@/src/components/ui";
 import { apiFetch } from "@/src/lib/api";
+import { useAuth } from "@/src/lib/auth-context";
 import { Colors } from "@/src/lib/theme";
 import { useColors } from "@/src/lib/theme-context";
 
@@ -19,6 +20,8 @@ const TIPES = [
 export default function JenisSampahScreen() {
   const Colors = useColors();
   const styles = useMemo(() => baseStyles(Colors), [Colors]);
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [items, setItems] = useState<Jenis[]>([]);
   const [show, setShow] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -90,19 +93,23 @@ export default function JenisSampahScreen() {
                   <Text style={{ fontSize: 15, fontWeight: "700", color: Colors.text }}>{j.nama}</Text>
                   <View style={{ marginTop: 4, alignSelf: "flex-start" }}>{tipeBadge(j.tipe)}</View>
                 </View>
-                <TouchableOpacity onPress={() => openEdit(j)} style={{ padding: 8 }}>
-                  <Ionicons name="create-outline" size={20} color={Colors.info} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => setDeleteId(j.id)} style={{ padding: 8 }}>
-                  <Ionicons name="trash-outline" size={20} color={Colors.error} />
-                </TouchableOpacity>
+                {isAdmin && (
+                  <TouchableOpacity onPress={() => openEdit(j)} style={{ padding: 8 }}>
+                    <Ionicons name="create-outline" size={20} color={Colors.info} />
+                  </TouchableOpacity>
+                )}
+                {isAdmin && (
+                  <TouchableOpacity onPress={() => setDeleteId(j.id)} style={{ padding: 8 }}>
+                    <Ionicons name="trash-outline" size={20} color={Colors.error} />
+                  </TouchableOpacity>
+                )}
               </View>
             </Card>
           ))
         )}
       </ScrollView>
 
-      <FAB onPress={openNew} />
+      {isAdmin && <FAB onPress={openNew} />}
 
       <Modal visible={show} transparent animationType="slide" onRequestClose={() => setShow(false)}>
         <View style={styles.modalBg}>

@@ -69,7 +69,7 @@ export default function ProfilScreen() {
           <MenuItem
             icon="information-circle-outline"
             label="Tentang Aplikasi"
-            onPress={() => Alert.alert("TPS Manager", "v1.0.0\nGemerlap - Gerakan Melestarikan Lingkungan Pesantren")}
+            onPress={() => router.push("/profil/tentang")}
             color={Colors.primary}
           />
           <MenuItem
