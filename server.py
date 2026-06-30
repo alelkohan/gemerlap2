@@ -138,7 +138,7 @@ async def get_petugas_for_user(user_id: str) -> Optional[dict]:
                 'id': user_id,
                 'nama': user['nama'],
                 'no_hp': user['no_hp'],
-                'jabatan': 'Admin' if user['role'] == 'admin' else 'Petugas',
+                'jabatan': 'Admin' if user['role'] == 'admin' else ('Auditor' if user['role'] == 'auditor' else 'Petugas'),
                 'tgl_bergabung': datetime.now().strftime('%Y-%m-%d'),
                 'status': True,
                 'user_id': user_id,
@@ -226,7 +226,7 @@ class UserCreate(BaseModel):
     nama: str
     no_hp: str
     password: str
-    role: Literal['admin', 'petugas']
+    role: Literal['admin', 'petugas', 'auditor']
     tanggal_bergabung: Optional[str] = None
     tanggal_keluar: Optional[str] = None
 
@@ -234,7 +234,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     nama: Optional[str] = None
     no_hp: Optional[str] = None
-    role: Optional[Literal['admin', 'petugas']] = None
+    role: Optional[Literal['admin', 'petugas', 'auditor']] = None
     password: Optional[str] = None
     tanggal_bergabung: Optional[str] = None
     tanggal_keluar: Optional[str] = None
@@ -2073,9 +2073,14 @@ async def check_daily_alpha():
             if status == 'aktif':
                 tanggal_str = now.strftime('%Y-%m-%d')
                 
-                # Get all active petugas
-                petugas_list = await db.petugas.find({'status': True}).to_list(1000)
-                for p in petugas_list:
+                # Get all users with role 'petugas'
+                petugas_users = await db.users.find({'role': 'petugas'}).to_list(1000)
+                petugas_ids = [u['id'] for u in petugas_users]
+                
+                # Verify they are active in the petugas collection
+                active_petugas = await db.petugas.find({'id': {'$in': petugas_ids}, 'status': True}).to_list(1000)
+                
+                for p in active_petugas:
                     # Check if they have an absensi record for today
                     existing = await db.absensi.find_one({
                         'petugas_id': p['id'],
