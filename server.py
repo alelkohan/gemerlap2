@@ -1956,6 +1956,57 @@ async def laporan_keuangan(start: str, end: str, current=Depends(admin_required)
 async def laporan_absensi(bulan: str, current=Depends(admin_required)):
     return await rekap_absensi(bulan, current)
 
+@api_router.get('/laporan/absensi-detail')
+async def laporan_absensi_detail(bulan: str, petugas_ids: str, current=Depends(admin_required)):
+    """Fetches detailed daily attendance and session data for specific officers."""
+    id_list = [pid.strip() for pid in petugas_ids.split(',') if pid.strip()]
+    if not id_list:
+        return []
+
+    # Get officers details
+    petugas_list = await db.petugas.find({'id': {'$in': id_list}}, {'_id': 0, 'id': 1, 'nama': 1}).to_list(1000)
+    petugas_map = {p['id']: p['nama'] for p in petugas_list}
+
+    # Get all absensi records for the month and selected officers
+    absensi_records = await db.absensi.find({
+        'petugas_id': {'$in': id_list},
+        'tanggal': {'$regex': f'^{bulan}'}
+    }, {'_id': 0}).sort('tanggal', 1).to_list(5000)
+
+    # Get all attendance sessions for the month and selected officers
+    sessions = await db.attendance_sessions.find({
+        'petugas_id': {'$in': id_list},
+        'tanggal': {'$regex': f'^{bulan}'}
+    }, {'_id': 0}).sort('check_in', 1).to_list(10000)
+
+    # Group by petugas
+    report = []
+    for pid in id_list:
+        nama = petugas_map.get(pid, 'Unknown')
+        p_records = [r for r in absensi_records if r['petugas_id'] == pid]
+        p_sessions = [s for s in sessions if s['petugas_id'] == pid]
+        
+        detail_harian = []
+        for r in p_records:
+            tanggal = r['tanggal']
+            day_sessions = [s for s in p_sessions if s['tanggal'] == tanggal]
+            detail_harian.append({
+                'tanggal': tanggal,
+                'status': r['status'],
+                'jam': r.get('jam', 0),
+                'alasan': r.get('alasan', ''),
+                'sessions': day_sessions
+            })
+            
+        if detail_harian:
+            report.append({
+                'petugas_id': pid,
+                'nama': nama,
+                'kehadiran': detail_harian
+            })
+            
+    return report
+
 
 @api_router.get('/laporan/penjualan')
 async def laporan_penjualan(start: str, end: str, jenis_ids: str = None, current=Depends(admin_required)):
