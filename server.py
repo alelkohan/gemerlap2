@@ -2073,12 +2073,12 @@ async def check_daily_alpha():
             if status == 'aktif':
                 tanggal_str = now.strftime('%Y-%m-%d')
                 
-                # Get all users with role 'petugas'
-                petugas_users = await db.users.find({'role': 'petugas'}).to_list(1000)
-                petugas_ids = [u['id'] for u in petugas_users]
+                # Get all users with role 'petugas' or 'admin'
+                users = await db.users.find({'role': {'$in': ['petugas', 'admin']}}).to_list(1000)
+                user_ids = [u['id'] for u in users]
                 
                 # Verify they are active in the petugas collection
-                active_petugas = await db.petugas.find({'id': {'$in': petugas_ids}, 'status': True}).to_list(1000)
+                active_petugas = await db.petugas.find({'id': {'$in': user_ids}, 'status': True}).to_list(1000)
                 
                 for p in active_petugas:
                     # Check if they have an absensi record for today
