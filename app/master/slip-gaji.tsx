@@ -35,11 +35,11 @@ export default function SlipGajiScreen() {
   const baseGaji = targetJamSebulan * 8300;
   const dendaAlpha = absen * 66400;
 
-  const initGajiPokok = baseGaji + uangLembur;
+  const initGajiPokok = baseGaji;
   const initPotongan = dendaTelat + dendaAlpha;
 
   const [gajiPokok, setGajiPokok] = useState(() => formatRupiahInput(Math.round(initGajiPokok).toString()));
-  const [tunjangan, setTunjangan] = useState("");
+  const [tunjangan, setTunjangan] = useState(() => uangLembur > 0 ? formatRupiahInput(Math.round(uangLembur).toString()) : "");
   const [potongan, setPotongan] = useState(() => initPotongan > 0 ? formatRupiahInput(Math.round(initPotongan).toString()) : "");
   const [keterangan, setKeterangan] = useState(() => {
     let ket = [];
@@ -277,7 +277,7 @@ export default function SlipGajiScreen() {
           editable={!isLunas}
         />
         <Input 
-          label="Tunjangan (Opsional)" 
+          label="Tunjangan / Lembur (Rp)" 
           keyboardType="numeric" 
           placeholder="Rp 0"
           value={tunjangan} 
