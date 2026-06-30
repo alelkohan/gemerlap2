@@ -21,6 +21,7 @@ export default function MasterScreen() {
       title: "Kepegawaian",
       items: [
         { icon: "people-outline", label: "Petugas", sub: "Data petugas TPS", path: "/master/petugas", color: Colors.info },
+        { icon: "time-outline", label: "Persetujuan Lembur", sub: "Setujui pengajuan lembur", path: "/master/persetujuan-lembur", color: Colors.warning, adminOnly: true },
         { icon: "wallet-outline", label: "Pinjaman / Kasbon", sub: "Kelola kasbon petugas", path: "/master/kasbon", color: Colors.error },
         { icon: "stats-chart-outline", label: "Rekap Absensi & Gaji", sub: "Kehadiran dan cetak slip gaji", path: "/master/rekap-absensi", color: Colors.warning, adminOnly: true },
         { icon: "shield-outline", label: "Kelola Akun", sub: "Akun & role pengguna", path: "/master/akun", color: Colors.error, adminOnly: true },

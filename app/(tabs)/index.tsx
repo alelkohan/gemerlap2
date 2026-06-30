@@ -60,10 +60,7 @@ export default function HomeScreen() {
     try {
       const data = await apiFetch<Stats>(`/dashboard/stats?bulan=${bulan}`);
       setStats(data);
-      if (user?.role === "admin") {
-        const targetData = await apiFetch<{jam: number}>(`/settings/target-jam-kerja`);
-        if (targetData && targetData.jam) setTargetJamKerja(String(targetData.jam));
-      }
+
       
       const massaData = await apiFetch<any[]>(`/laporan/neraca-massa?start=${bulan}-01&end=${bulan}-31`);
       if (massaData && massaData.length > 0) {
@@ -83,34 +80,7 @@ export default function HomeScreen() {
     }
   }, [bulan, user?.role]);
 
-  const saveTarget = async () => {
-    setSaveStatus("saving");
-    const val = parseFloat(targetJamKerja);
-    if (isNaN(val) || val < 8.0) {
-      setAlertConfig({
-        visible: true,
-        title: "Perhatian",
-        message: "Target kerja minimal adalah 8 jam.",
-        variant: "danger"
-      });
-      setSaveStatus("idle");
-      setTargetJamKerja("8");
-      return;
-    }
-    
-    try {
-      await apiFetch(`/settings/target-jam-kerja`, {
-        method: 'POST',
-        body: { jam: val }
-      });
-      setIsEditingTarget(false);
-      setSaveStatus("success");
-      setTimeout(() => setSaveStatus("idle"), 2500);
-    } catch (e) {
-      console.warn(e);
-      setSaveStatus("idle");
-    }
-  };
+
 
   useFocusEffect(
     useCallback(() => {
@@ -145,72 +115,7 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Target Kerja Khusus Petugas */}
-        <View style={{ marginBottom: 16 }}>
-            <Card style={{ padding: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <View>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                  <Ionicons name="time" size={16} color={Colors.primary} />
-                  <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.textSecondary }}>Target Kerja Hari Ini</Text>
-                </View>
-                <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
-                  {isEditingTarget ? (
-                    <TextInput 
-                      value={targetJamKerja}
-                      onChangeText={setTargetJamKerja}
-                      keyboardType="numeric"
-                      autoFocus
-                      style={{ fontSize: 36, fontWeight: "800", color: Colors.primary, padding: 0, margin: 0, borderBottomWidth: 2, borderColor: Colors.primary, width: 60, textAlign: "center" }}
-                    />
-                  ) : (
-                    <View style={{ width: 60, alignItems: "center", borderBottomWidth: 2, borderColor: "transparent" }}>
-                      <Text style={{ fontSize: 36, fontWeight: "800", color: Colors.primary }}>{targetJamKerja}</Text>
-                    </View>
-                  )}
-                  <Text style={{ fontSize: 16, fontWeight: "600", color: Colors.textSecondary, marginBottom: 6 }}>Jam</Text>
-                </View>
-              </View>
-              <Animated.View 
-                layout={LinearTransition.springify().damping(26).stiffness(200).mass(0.8)} 
-                style={{ flexDirection: "row", gap: 8 }}
-              >
-                {isEditingTarget && (
-                  <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(150)}>
-                    <TouchableOpacity 
-                      disabled={saveStatus === "saving"}
-                      onPress={() => setIsEditingTarget(false)}
-                      style={{ backgroundColor: Colors.error + '15', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 24, alignItems: "center", justifyContent: "center" }}
-                    >
-                      <Text style={{ color: Colors.error, fontWeight: "700", fontSize: 14 }}>Batal</Text>
-                    </TouchableOpacity>
-                  </Animated.View>
-                )}
-                <Animated.View layout={LinearTransition.springify().damping(26).stiffness(300).mass(0.8)}>
-                  <TouchableOpacity 
-                    disabled={saveStatus === "saving" || saveStatus === "success"}
-                    onPress={() => {
-                      if (isEditingTarget) {
-                        saveTarget();
-                      } else {
-                        setIsEditingTarget(true);
-                      }
-                    }}
-                    style={{ backgroundColor: saveStatus === "success" ? Colors.success : (isEditingTarget ? Colors.success + '15' : Colors.primary + '15'), width: 90, paddingVertical: 10, borderRadius: 24, alignItems: "center", justifyContent: "center" }}
-                  >
-                    {saveStatus === "saving" ? (
-                      <ActivityIndicator size="small" color={Colors.success} />
-                    ) : saveStatus === "success" ? (
-                      <Ionicons name="checkmark" size={18} color="#fff" />
-                    ) : (
-                      <Text style={{ color: isEditingTarget ? Colors.success : Colors.primary, fontWeight: "700", fontSize: 14 }}>
-                        {isEditingTarget ? "Simpan" : "Edit"}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </Animated.View>
-              </Animated.View>
-            </Card>
-          </View>
+
 
         {/* Neraca Massa & Recovery Factor Widget */}
         {user?.role === "admin" && (

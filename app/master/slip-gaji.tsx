@@ -31,7 +31,7 @@ export default function SlipGajiScreen() {
   const extraJam = Math.max(0, total_jam - targetJamSebulan);
   
   const dendaTelat = deficitJam * 8300;
-  const uangLembur = extraJam * 8300;
+  const uangLembur = extraJam * 11250;
   const baseGaji = targetJamSebulan * 8300;
   const dendaAlpha = absen * 66400;
 
@@ -56,6 +56,7 @@ export default function SlipGajiScreen() {
   const [kasbonIds, setKasbonIds] = useState<string[]>([]);
   const [kasbonDetails, setKasbonDetails] = useState<any[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showKasbonWarning, setShowKasbonWarning] = useState(true);
   const [showImageZoom, setShowImageZoom] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
@@ -70,8 +71,8 @@ export default function SlipGajiScreen() {
       try {
         let kasbons: any[] = [];
         try {
-          kasbons = await apiFetch(`/kasbon/pending/${petugas_id}`);
-        } catch(e) {}
+          kasbons = await apiFetch(`/kasbon/pending/${petugas_id}`) || [];
+        } catch(e: any) {}
         
         let pot = initPotongan;
         let ketList: string[] = [];
@@ -88,21 +89,33 @@ export default function SlipGajiScreen() {
            ketList.push(`Potongan Kasbon (Rp ${sumKasbon.toLocaleString("id-ID")})`);
         }
 
-        const gaji = await apiFetch(`/gaji/${petugas_id}?periode=${bulan}`);
+        let gaji: any = null;
+        try {
+          gaji = await apiFetch(`/gaji/${petugas_id}?periode=${bulan}`);
+        } catch(e) {}
+
         if (gaji) {
           setGajiId(gaji.id);
           setGajiPokok(formatRupiahInput(gaji.gaji_pokok.toString()));
           setTunjangan(formatRupiahInput(gaji.tunjangan.toString()));
-          setPotongan(formatRupiahInput(gaji.potongan.toString()));
-          setKeterangan(gaji.keterangan || "");
+          if (kasbons && kasbons.length > 0) {
+            const savedPot = gaji.potongan || 0;
+            const sumKasbon = kasbons.reduce((acc: number, k: any) => acc + k.nominal, 0);
+            setPotongan(formatRupiahInput(Math.round(savedPot + sumKasbon).toString()));
+            const savedKet = gaji.keterangan || "";
+            const kasbonKet = `Potongan Kasbon (Rp ${sumKasbon.toLocaleString("id-ID")})`;
+            setKeterangan(savedKet ? `${savedKet}, ${kasbonKet}` : kasbonKet);
+            setKasbonIds(kIds);
+          } else {
+            setPotongan(formatRupiahInput(gaji.potongan.toString()));
+            setKeterangan(gaji.keterangan || "");
+          }
           setBuktiUrl(gaji.bukti_url || "");
           setIsLunas(true);
         } else {
-           if (kasbons && kasbons.length > 0) {
-               setPotongan(formatRupiahInput(Math.round(pot).toString()));
-               setKeterangan(ketList.join(", "));
-               setKasbonIds(kIds);
-           }
+          setPotongan(formatRupiahInput(Math.round(pot).toString()));
+          setKeterangan(ketList.join(", "));
+          setKasbonIds(kIds);
         }
       } catch (e) {
         // Not found, normal flow
@@ -261,7 +274,7 @@ export default function SlipGajiScreen() {
           onChangeText={(text) => setTunjangan(formatRupiahInput(text))} 
           editable={!isLunas}
         />
-        <View>
+            <View>
               <Input
                 label="Potongan (Rp)"
                 placeholder="0"
@@ -272,13 +285,18 @@ export default function SlipGajiScreen() {
                 }}
                 editable={!isLunas}
               />
-              {!isLunas && kasbonDetails.length > 0 && (
+              {!isLunas && kasbonDetails.length > 0 && showKasbonWarning && (
                 <View style={{ backgroundColor: Colors.warningBg, padding: 12, borderRadius: 8, marginTop: -12, marginBottom: 16 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.warning, marginBottom: 4 }}>
-                    Peringatan Kasbon
-                  </Text>
-                  <Text style={{ fontSize: 12, color: Colors.warning }}>
-                    Petugas ini memiliki {kasbonDetails.length} pinjaman kasbon yang belum lunas (total Rp {kasbonDetails.reduce((a, b) => a + b.nominal, 0).toLocaleString('id-ID')}). Nilai ini sudah otomatis ditambahkan ke kolom Potongan dan Keterangan. Saat slip gaji disimpan, kasbon akan otomatis dilunasi.
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.warning, flex: 1 }}>
+                      ⚠️ Kasbon Terdeteksi
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowKasbonWarning(false)} style={{ padding: 4 }}>
+                      <Ionicons name="close" size={18} color={Colors.warning} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={{ fontSize: 12, color: Colors.warning, marginTop: 4 }}>
+                    Petugas ini memiliki {kasbonDetails.length} kasbon belum lunas (total Rp {kasbonDetails.reduce((a: number, b: any) => a + b.nominal, 0).toLocaleString('id-ID')}). Sudah otomatis ditambahkan ke Potongan dan Keterangan.
                   </Text>
                 </View>
               )}
@@ -289,6 +307,9 @@ export default function SlipGajiScreen() {
           value={keterangan} 
           onChangeText={setKeterangan} 
           editable={!isLunas}
+          multiline={true}
+          numberOfLines={3}
+          style={{ minHeight: 80, textAlignVertical: "top" }}
         />
 
         {!isLunas && (

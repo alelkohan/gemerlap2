@@ -11,6 +11,7 @@ import {
   Platform,
   Modal,
   Pressable,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -295,6 +296,13 @@ export default function AbsenScreen() {
   const [selfKeterangan, setSelfKeterangan] = useState("");
   const [showDeleteStatus, setShowDeleteStatus] = useState(false);
 
+  // Lembur states
+  const [lemburModalVisible, setLemburModalVisible] = useState(false);
+  const [lemburJam, setLemburJam] = useState("");
+  const [lemburAlasan, setLemburAlasan] = useState("");
+  const [lemburHistory, setLemburHistory] = useState<any[]>([]);
+  const [loadingLembur, setLoadingLembur] = useState(false);
+
   // Modal states
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [result, setResult] = useState<{
@@ -343,9 +351,18 @@ export default function AbsenScreen() {
     }
   }, []);
 
+  const loadLembur = useCallback(async () => {
+    try {
+      const list = await apiFetch("/lembur/my");
+      setLemburHistory(list || []);
+    } catch (e) {
+      console.warn("Load lembur failed:", e);
+    }
+  }, []);
+
   const loadAll = useCallback(async (dateStr: string) => {
-    await Promise.all([loadStatus(), loadSessions(dateStr)]);
-  }, [loadStatus, loadSessions]);
+    await Promise.all([loadStatus(), loadSessions(dateStr), loadLembur()]);
+  }, [loadStatus, loadSessions, loadLembur]);
 
   useFocusEffect(
     useCallback(() => {
@@ -453,6 +470,36 @@ export default function AbsenScreen() {
 
     return () => clearInterval(t);
   }, [status?.has_active_session, selectedDate, loadStatus, loadSessions, handleCheckOut, loadAll]);
+
+  const handleSubmitLembur = async () => {
+    if (!lemburJam || isNaN(Number(lemburJam)) || Number(lemburJam) <= 0) {
+      Alert.alert("Error", "Mohon isi durasi lembur dengan angka yang valid");
+      return;
+    }
+    if (!lemburAlasan.trim()) {
+      Alert.alert("Error", "Mohon isi alasan lembur");
+      return;
+    }
+    setLoadingLembur(true);
+    try {
+      await apiFetch("/lembur", {
+        method: "POST",
+        body: JSON.stringify({
+          durasi_jam: Number(lemburJam),
+          alasan: lemburAlasan
+        })
+      });
+      setLemburModalVisible(false);
+      setLemburJam("");
+      setLemburAlasan("");
+      showResult("success", "Berhasil", "Pengajuan lembur telah dikirim dan menunggu persetujuan.");
+      loadLembur();
+    } catch (e: any) {
+      Alert.alert("Gagal", e.message || "Gagal mengirim pengajuan");
+    } finally {
+      setLoadingLembur(false);
+    }
+  };
 
   const handleCheckIn = () => setConfirmVisible(true);
 
@@ -591,6 +638,36 @@ export default function AbsenScreen() {
                 </Text>
               </View>
             </View>
+
+            <TouchableOpacity 
+              style={[styles.btn, { backgroundColor: Colors.warning, marginTop: 12, paddingVertical: 12 }]}
+              onPress={() => setLemburModalVisible(true)}
+            >
+              <Ionicons name="time" size={18} color="#fff" />
+              <Text style={[styles.btnText, { color: "#fff", fontSize: 14 }]}>Ajukan Lembur</Text>
+            </TouchableOpacity>
+
+            {lemburHistory.length > 0 && (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: "bold", color: Colors.textSecondary }}>Pengajuan Lembur Terakhir:</Text>
+                {lemburHistory.slice(0, 2).map((l, i) => (
+                  <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: Colors.surface, padding: 10, borderRadius: 8 }}>
+                    <View>
+                      <Text style={{ fontSize: 13, fontWeight: "bold", color: Colors.text }}>{l.durasi_jam} Jam</Text>
+                      <Text style={{ fontSize: 11, color: Colors.textSecondary }}>{l.tanggal}</Text>
+                    </View>
+                    <View style={{ justifyContent: "center" }}>
+                      <Text style={{ 
+                        fontSize: 11, fontWeight: "bold",
+                        color: l.status === "approved" ? Colors.success : (l.status === "rejected" ? Colors.error : Colors.warning) 
+                      }}>
+                        {l.status.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -847,6 +924,74 @@ export default function AbsenScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Lembur Modal */}
+      {lemburModalVisible && (
+        <View style={sharedModal.overlay}>
+          <View style={[sharedModal.modal, { backgroundColor: Colors.surface }]}>
+            <Text style={[sharedModal.title, { color: Colors.text }]}>Ajukan Lembur</Text>
+            <Text style={[sharedModal.subtitle, { color: Colors.textSecondary, marginBottom: 16 }]}>
+              Berapa jam tambahan yang Anda butuhkan hari ini?
+            </Text>
+
+            <View style={{ marginBottom: 12 }}>
+              <Text style={styles.inputLabel}>Durasi (Jam)</Text>
+              <View style={styles.textInput}>
+                <Ionicons name="time-outline" size={16} color={Colors.textSecondary} />
+                <TextInput
+                  placeholder="Misal: 2"
+                  placeholderTextColor={Colors.textTertiary}
+                  keyboardType="numeric"
+                  value={lemburJam}
+                  onChangeText={setLemburJam}
+                  style={{ flex: 1, fontSize: 14, color: Colors.text }}
+                />
+              </View>
+            </View>
+
+            <View style={{ marginBottom: 20 }}>
+              <Text style={styles.inputLabel}>Alasan / Pekerjaan</Text>
+              <View style={styles.textInput}>
+                <Ionicons name="create-outline" size={16} color={Colors.textSecondary} />
+                <TextInput
+                  placeholder="Misal: Membersihkan sisa acara"
+                  placeholderTextColor={Colors.textTertiary}
+                  value={lemburAlasan}
+                  onChangeText={setLemburAlasan}
+                  style={{ flex: 1, fontSize: 14, color: Colors.text }}
+                  multiline
+                />
+              </View>
+            </View>
+
+            <View style={sharedModal.btnRow}>
+              <TouchableOpacity
+                style={[sharedModal.btn, { backgroundColor: Colors.borderLight }]}
+                onPress={() => setLemburModalVisible(false)}
+                activeOpacity={0.8}
+                disabled={loadingLembur}
+              >
+                <Text style={[sharedModal.btnText, { color: Colors.textSecondary }]}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[sharedModal.btn, { backgroundColor: Colors.warning, flex: 1.4 }]}
+                onPress={handleSubmitLembur}
+                activeOpacity={0.8}
+                disabled={loadingLembur}
+              >
+                {loadingLembur ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="send" size={18} color="#fff" />
+                    <Text style={[sharedModal.btnText, { color: "#fff" }]}>Kirim Pengajuan</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
