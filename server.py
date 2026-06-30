@@ -1619,6 +1619,7 @@ async def create_lembur(req: LemburRequestCreate, current=Depends(get_current_us
         'created_at': now_iso()
     }
     await db.lembur.insert_one(lembur_doc)
+    lembur_doc.pop('_id', None)
     return {'message': 'Pengajuan lembur berhasil dikirim', 'data': lembur_doc}
 
 @api_router.get('/lembur/pending')
