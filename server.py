@@ -1546,7 +1546,7 @@ async def get_all_kasbon(bulan: Optional[str] = None, current=Depends(admin_requ
 
 @api_router.get('/kasbon/pending/{petugas_id}')
 async def get_pending_kasbon(petugas_id: str, current=Depends(admin_required)):
-    docs = await db.kasbon.find({'petugas_id': petugas_id, 'status': 'belum_lunas'}, {'_id': 0}).to_list(100)
+    docs = await db.kasbon.find({'petugas_id': petugas_id, 'status': {'$in': ['belum_lunas', 'pending']}}, {'_id': 0}).to_list(100)
     return docs
 
 @api_router.post('/kasbon')
