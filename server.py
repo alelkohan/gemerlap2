@@ -15,6 +15,7 @@ import jwt
 import math
 import cloudinary
 import cloudinary.uploader
+import asyncio
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -376,6 +377,9 @@ class KasbonCreate(BaseModel):
     keterangan: Optional[str] = None
 
 
+
+class OperasionalStatus(BaseModel):
+    status: Literal['aktif', 'libur']
 
 class LemburRequestCreate(BaseModel):
     durasi_jam: float
@@ -1099,6 +1103,23 @@ async def save_tps_settings(req: TPSLocationSettings, current=Depends(admin_requ
     )
     return {'message': 'Lokasi TPS berhasil diperbarui', 'data': req.dict()}
 
+
+
+@api_router.get('/settings/operasional')
+async def get_operasional_status(current=Depends(get_current_user)):
+    setting = await db.settings.find_one({'key': 'operasional_status'}, {'_id': 0})
+    if not setting:
+        return {'status': 'aktif'}
+    return {'status': setting.get('status', 'aktif')}
+
+@api_router.post('/settings/operasional')
+async def set_operasional_status(req: OperasionalStatus, current=Depends(admin_required)):
+    await db.settings.update_one(
+        {'key': 'operasional_status'},
+        {'$set': {'status': req.status, 'updated_at': now_iso()}},
+        upsert=True
+    )
+    return {'message': 'Status operasional berhasil diubah', 'status': req.status}
 
 
 @api_router.get('/tps-locations')
@@ -2041,9 +2062,52 @@ async def seed_data():
     await db.tps_locations.create_index('id', unique=True)
 
 
+async def check_daily_alpha():
+    while True:
+        now = datetime.now(timezone.utc) + timedelta(hours=7) # WIB
+        # Menjalankan pengecekan tepat di jam 23:59
+        if now.hour == 23 and now.minute == 59:
+            setting = await db.settings.find_one({'key': 'operasional_status'})
+            status = setting.get('status', 'aktif') if setting else 'aktif'
+            
+            if status == 'aktif':
+                tanggal_str = now.strftime('%Y-%m-%d')
+                
+                # Get all active petugas
+                petugas_list = await db.petugas.find({'status': True}).to_list(1000)
+                for p in petugas_list:
+                    # Check if they have an absensi record for today
+                    existing = await db.absensi.find_one({
+                        'petugas_id': p['id'],
+                        'tanggal': tanggal_str
+                    })
+                    if not existing:
+                        # Insert Alpha
+                        doc = {
+                            'id': new_id(),
+                            'petugas_id': p['id'],
+                            'tanggal': tanggal_str,
+                            'status': 'absen',
+                            'jam': 0.0,
+                            'alasan': 'Sistem Otomatis (Alpha)',
+                            'manual': False,
+                            'created_at': now_iso()
+                        }
+                        await db.absensi.insert_one(doc)
+                logging.info(f"Daily alpha process completed for {tanggal_str}")
+            else:
+                logging.info(f"Skipped daily alpha process because status is libur")
+                
+            # Sleep 60 seconds to avoid running multiple times in the same minute
+            await asyncio.sleep(60)
+        else:
+            # Check every minute
+            await asyncio.sleep(60)
+
 @app.on_event('startup')
 async def startup_event():
     await seed_data()
+    asyncio.create_task(check_daily_alpha())
 
 
 app.include_router(api_router)
