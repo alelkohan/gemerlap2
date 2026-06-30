@@ -11,6 +11,7 @@ import {
   TextInput,
   ActivityIndicator,
   Platform,
+  Switch,
 } from "react-native";
 import Animated, { LinearTransition, FadeIn, FadeOut, SpringConfig } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -43,6 +44,7 @@ export default function HomeScreen() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [bulan, setBulan] = useState(currentBulan());
   const [refreshing, setRefreshing] = useState(false);
+  const [operasionalStatus, setOperasionalStatus] = useState<"aktif" | "libur">("aktif");
   const [targetJamKerja, setTargetJamKerja] = useState("8");
   const [isEditingTarget, setIsEditingTarget] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success">("idle");
@@ -75,10 +77,31 @@ export default function HomeScreen() {
       } else {
         setNeracaKeuangan(null);
       }
+      
+      if (user?.role === "admin") {
+        const opStatus = await apiFetch<{status: "aktif"|"libur"}>("/settings/operasional");
+        if (opStatus) setOperasionalStatus(opStatus.status);
+      }
     } catch (e) {
       console.warn(e);
     }
   }, [bulan, user?.role]);
+
+  const toggleOperasionalStatus = async (val: boolean) => {
+    const newStatus = val ? "aktif" : "libur";
+    // Optimistic update
+    setOperasionalStatus(newStatus);
+    try {
+      await apiFetch("/settings/operasional", {
+        method: "POST",
+        body: { status: newStatus }
+      });
+    } catch (e: any) {
+      // Revert if failed
+      setOperasionalStatus(val ? "libur" : "aktif");
+      setAlertConfig({ visible: true, title: "Gagal", message: e.message || "Gagal mengubah status operasional", variant: "danger" });
+    }
+  };
 
 
 
@@ -155,6 +178,28 @@ export default function HomeScreen() {
                  <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.error }}>{((neracaMassa?.residu || 0) + (neracaMassa?.lain || 0)).toFixed(1)} kg</Text>
                </View>
             </View>
+          </Card>
+        )}
+
+        {/* Global Operational Switch */}
+        {user?.role === "admin" && (
+          <Card style={{ marginBottom: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: operasionalStatus === "aktif" ? Colors.successBg : Colors.errorBg }}>
+            <View style={{ flex: 1, paddingRight: 16 }}>
+              <Text style={{ fontWeight: "bold", fontSize: 15, color: operasionalStatus === "aktif" ? Colors.success : Colors.error, marginBottom: 4 }}>
+                {operasionalStatus === "aktif" ? "Status: Operasional Aktif" : "Status: Sedang Libur"}
+              </Text>
+              <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
+                {operasionalStatus === "aktif" 
+                  ? "Sistem absen otomatis (Alpha) berjalan jam 23:59." 
+                  : "Sistem absen otomatis dimatikan selama libur."}
+              </Text>
+            </View>
+            <Switch
+              value={operasionalStatus === "aktif"}
+              onValueChange={toggleOperasionalStatus}
+              trackColor={{ false: Colors.border, true: Colors.success }}
+              thumbColor={"#ffffff"}
+            />
           </Card>
         )}
 
