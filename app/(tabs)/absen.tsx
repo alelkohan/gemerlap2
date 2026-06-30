@@ -926,7 +926,7 @@ export default function AbsenScreen() {
       </ScrollView>
 
       {/* Lembur Modal */}
-      {lemburModalVisible && (
+      <Modal transparent animationType="fade" visible={lemburModalVisible} onRequestClose={() => setLemburModalVisible(false)} statusBarTranslucent>
         <View style={sharedModal.overlay}>
           <View style={[sharedModal.modal, { backgroundColor: Colors.surface }]}>
             <Text style={[sharedModal.title, { color: Colors.text }]}>Ajukan Lembur</Text>
@@ -991,7 +991,7 @@ export default function AbsenScreen() {
             </View>
           </View>
         </View>
-      )}
+      </Modal>
     </SafeAreaView>
   );
 }
