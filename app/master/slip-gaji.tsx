@@ -249,8 +249,18 @@ export default function SlipGajiScreen() {
             <Text style={{ fontWeight: "700", color: Colors.error }}>{absen} hari</Text>
           </View>
           <View style={styles.row}>
+            <Text style={{ color: Colors.text }}>Target Jam Kerja ({hadir}x8)</Text>
+            <Text style={{ fontWeight: "700", color: Colors.text }}>{targetJamSebulan.toFixed(2)} jam</Text>
+          </View>
+          <View style={styles.row}>
             <Text style={{ color: Colors.text }}>Total Jam Kerja</Text>
             <Text style={{ fontWeight: "700", color: Colors.primary }}>{Number(total_jam || 0).toFixed(2)} jam</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={{ color: Colors.text }}>Selisih Waktu</Text>
+            <Text style={{ fontWeight: "700", color: extraJam > 0 ? Colors.success : (deficitJam > 0 ? Colors.error : Colors.textSecondary) }}>
+              {extraJam > 0 ? `+${extraJam.toFixed(2)} jam (Lembur)` : (deficitJam > 0 ? `-${deficitJam.toFixed(2)} jam (Telat/Pulang Cepat)` : `Sesuai Target`)}
+            </Text>
           </View>
         </Card>
 
