@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Modal, Pressable, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +17,8 @@ export default function PersetujuanLemburScreen() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{id: string, action: "approved" | "rejected"} | null>(null);
 
   const load = async () => {
     try {
@@ -36,33 +38,30 @@ export default function PersetujuanLemburScreen() {
     }, [])
   );
 
-  const handleAction = async (id: string, action: "approved" | "rejected") => {
-    Alert.alert(
-      "Konfirmasi",
-      `Apakah Anda yakin ingin ${action === "approved" ? "menyetujui" : "menolak"} pengajuan ini?`,
-      [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "Ya, Lanjutkan",
-          style: action === "rejected" ? "destructive" : "default",
-          onPress: async () => {
-            try {
-              setProcessing(id);
-              await apiFetch(`/lembur/${id}/status`, {
-                method: "PUT",
-                body: { status: action }
-              });
-              Alert.alert("Sukses", `Pengajuan berhasil di${action === "approved" ? "setujui" : "tolak"}`);
-              load();
-            } catch (e: any) {
-              Alert.alert("Gagal", e.message || "Terjadi kesalahan saat memproses");
-            } finally {
-              setProcessing(null);
-            }
-          }
-        }
-      ]
-    );
+  const showConfirm = (id: string, action: "approved" | "rejected") => {
+    setConfirmAction({ id, action });
+    setConfirmModalVisible(true);
+  };
+
+  const processAction = async () => {
+    if (!confirmAction) return;
+    const { id, action } = confirmAction;
+    try {
+      setProcessing(id);
+      setConfirmModalVisible(false);
+      await apiFetch(`/lembur/${id}/status`, {
+        method: "PUT",
+        body: { status: action }
+      });
+      // Sukses notifikasi menggunakan alert agar simple setelah aksi selesai, atau biarkan load data
+      Alert.alert("Sukses", `Pengajuan berhasil di${action === "approved" ? "setujui" : "tolak"}`);
+      load();
+    } catch (e: any) {
+      Alert.alert("Gagal", e.message || "Terjadi kesalahan saat memproses");
+    } finally {
+      setProcessing(null);
+      setConfirmAction(null);
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -120,25 +119,85 @@ export default function PersetujuanLemburScreen() {
               <TouchableOpacity
                 style={[styles.btnTolak, processing === item.id && { opacity: 0.5 }]}
                 disabled={processing !== null}
-                onPress={() => handleAction(item.id, "rejected")}
+                onPress={() => showConfirm(item.id, "rejected")}
               >
-                <Ionicons name="close-circle-outline" size={20} color={Colors.error} />
-                <Text style={styles.btnTolakText}>Tolak</Text>
+                {processing === item.id && confirmAction?.action === "rejected" ? (
+                  <ActivityIndicator color={Colors.error} size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="close-circle-outline" size={20} color={Colors.error} />
+                    <Text style={styles.btnTolakText}>Tolak</Text>
+                  </>
+                )}
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={[styles.btnSetuju, processing === item.id && { opacity: 0.5 }]}
                 disabled={processing !== null}
-                onPress={() => handleAction(item.id, "approved")}
+                onPress={() => showConfirm(item.id, "approved")}
               >
-                <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                <Text style={styles.btnSetujuText}>Setujui</Text>
+                {processing === item.id && confirmAction?.action === "approved" ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                    <Text style={styles.btnSetujuText}>Setujui</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </Card>
         ))}
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* MODAL KONFIRMASI ESTETIK */}
+      <Modal
+        visible={confirmModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setConfirmModalVisible(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setConfirmModalVisible(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={[styles.modalIconBox, { backgroundColor: confirmAction?.action === "approved" ? Colors.success + "15" : Colors.error + "15" }]}>
+              <Ionicons 
+                name={confirmAction?.action === "approved" ? "checkmark-circle" : "close-circle"} 
+                size={40} 
+                color={confirmAction?.action === "approved" ? Colors.success : Colors.error} 
+              />
+            </View>
+            
+            <Text style={styles.modalTitle}>
+              Konfirmasi {confirmAction?.action === "approved" ? "Persetujuan" : "Penolakan"}
+            </Text>
+            <Text style={styles.modalMessage}>
+              Apakah Anda yakin ingin {confirmAction?.action === "approved" ? "menyetujui" : "menolak"} pengajuan lembur ini?
+            </Text>
+            
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={[styles.modalBtnCancel, { borderColor: Colors.border }]}
+                onPress={() => setConfirmModalVisible(false)}
+              >
+                <Text style={[styles.modalBtnCancelText, { color: Colors.textSecondary }]}>Batal</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, { backgroundColor: confirmAction?.action === "approved" ? Colors.success : Colors.error }]}
+                onPress={processAction}
+              >
+                <Text style={styles.modalBtnConfirmText}>
+                  Ya, {confirmAction?.action === "approved" ? "Setujui" : "Tolak"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -258,6 +317,76 @@ function createStyles(Colors: any) {
       color: "#fff",
       fontWeight: "600",
       fontSize: 14,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.45)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 24,
+    },
+    modalContent: {
+      backgroundColor: Colors.bg,
+      borderRadius: 24,
+      padding: 24,
+      width: "100%",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.15,
+      shadowRadius: 20,
+      elevation: 10,
+    },
+    modalIconBox: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 20,
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: "bold",
+      color: Colors.text,
+      marginBottom: 8,
+      textAlign: "center",
+    },
+    modalMessage: {
+      fontSize: 15,
+      color: Colors.textSecondary,
+      textAlign: "center",
+      marginBottom: 28,
+      lineHeight: 22,
+    },
+    modalActionRow: {
+      flexDirection: "row",
+      gap: 12,
+      width: "100%",
+    },
+    modalBtnCancel: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    modalBtnCancelText: {
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    modalBtnConfirm: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    modalBtnConfirmText: {
+      color: "#fff",
+      fontSize: 15,
+      fontWeight: "700",
     },
   });
 }
