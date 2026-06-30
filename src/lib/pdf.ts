@@ -298,8 +298,15 @@ export async function generateLaporanAbsensiDetailPdf(data: any[], bulanLabel: s
         let sessionDesc = "-";
         if (isHadir && k.sessions && k.sessions.length > 0) {
           sessionDesc = k.sessions.map((s: any) => {
-            const out = s.check_out ? s.check_out.slice(0,5) : "...";
-            return `[${s.check_in.slice(0,5)} - ${out}]`;
+            const dIn = new Date(s.check_in);
+            const inStr = String(dIn.getHours()).padStart(2, '0') + '.' + String(dIn.getMinutes()).padStart(2, '0');
+            
+            let outStr = "...";
+            if (s.check_out) {
+              const dOut = new Date(s.check_out);
+              outStr = String(dOut.getHours()).padStart(2, '0') + '.' + String(dOut.getMinutes()).padStart(2, '0');
+            }
+            return `[${inStr} - ${outStr}]`;
           }).join(", ");
         } else if (!isHadir) {
           sessionDesc = k.alasan || "-";
