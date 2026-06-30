@@ -1593,7 +1593,7 @@ async def create_kasbon(req: KasbonCreate, current=Depends(admin_required)):
         'tanggal': tanggal,
         'nominal': req.nominal,
         'keterangan': req.keterangan,
-        'status': 'pending',
+        'status': 'belum_lunas',
         'keuangan_id': keuangan_id,
         'created_at': datetime.now(timezone.utc).isoformat()
     }
