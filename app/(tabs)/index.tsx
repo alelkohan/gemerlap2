@@ -138,7 +138,27 @@ export default function HomeScreen() {
           />
         </View>
 
-
+        {/* Global Operational Switch */}
+        {user?.role === "admin" && (
+          <Card style={{ marginBottom: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: operasionalStatus === "aktif" ? Colors.successBg : Colors.errorBg }}>
+            <View style={{ flex: 1, paddingRight: 16 }}>
+              <Text style={{ fontWeight: "bold", fontSize: 15, color: operasionalStatus === "aktif" ? Colors.success : Colors.error, marginBottom: 4 }}>
+                {operasionalStatus === "aktif" ? "Status: Operasional Aktif" : "Status: Sedang Libur"}
+              </Text>
+              <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
+                {operasionalStatus === "aktif" 
+                  ? "Sistem absen otomatis (Alpha) berjalan jam 23:59." 
+                  : "Sistem absen otomatis dimatikan selama libur."}
+              </Text>
+            </View>
+            <Switch
+              value={operasionalStatus === "aktif"}
+              onValueChange={toggleOperasionalStatus}
+              trackColor={{ false: Colors.border, true: Colors.success }}
+              thumbColor={"#ffffff"}
+            />
+          </Card>
+        )}
 
         {/* Neraca Massa & Recovery Factor Widget */}
         {user?.role === "admin" && (
@@ -178,28 +198,6 @@ export default function HomeScreen() {
                  <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.error }}>{((neracaMassa?.residu || 0) + (neracaMassa?.lain || 0)).toFixed(1)} kg</Text>
                </View>
             </View>
-          </Card>
-        )}
-
-        {/* Global Operational Switch */}
-        {user?.role === "admin" && (
-          <Card style={{ marginBottom: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: operasionalStatus === "aktif" ? Colors.successBg : Colors.errorBg }}>
-            <View style={{ flex: 1, paddingRight: 16 }}>
-              <Text style={{ fontWeight: "bold", fontSize: 15, color: operasionalStatus === "aktif" ? Colors.success : Colors.error, marginBottom: 4 }}>
-                {operasionalStatus === "aktif" ? "Status: Operasional Aktif" : "Status: Sedang Libur"}
-              </Text>
-              <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
-                {operasionalStatus === "aktif" 
-                  ? "Sistem absen otomatis (Alpha) berjalan jam 23:59." 
-                  : "Sistem absen otomatis dimatikan selama libur."}
-              </Text>
-            </View>
-            <Switch
-              value={operasionalStatus === "aktif"}
-              onValueChange={toggleOperasionalStatus}
-              trackColor={{ false: Colors.border, true: Colors.success }}
-              thumbColor={"#ffffff"}
-            />
           </Card>
         )}
 

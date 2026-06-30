@@ -54,6 +54,7 @@ export default function TabsLayout() {
         name="absen"
         options={{
           title: "Absen",
+          href: user?.role === "auditor" ? null : "/(tabs)/absen",
           tabBarIcon: ({ color, size }) => <Ionicons name="time" size={size} color={color} />,
         }}
       />

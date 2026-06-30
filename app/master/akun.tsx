@@ -12,10 +12,11 @@ import { useColors } from "@/src/lib/theme-context";
 import { DatePickerField } from "@/src/components/date-picker";
 import { formatTanggalID } from "@/src/lib/format";
 
-type User = { id: string; nama: string; no_hp: string; role: "admin" | "petugas"; tanggal_bergabung?: string; tanggal_keluar?: string };
+type User = { id: string; nama: string; no_hp: string; role: "admin" | "petugas" | "auditor"; tanggal_bergabung?: string; tanggal_keluar?: string };
 const ROLES = [
   { id: "admin", nama: "Admin" },
   { id: "petugas", nama: "Petugas" },
+  { id: "auditor", nama: "Auditor" },
 ];
 
 export default function KelolaAkun() {
@@ -28,7 +29,7 @@ export default function KelolaAkun() {
   const [nama, setNama] = useState("");
   const [noHp, setNoHp] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"admin" | "petugas">("petugas");
+  const [role, setRole] = useState<"admin" | "petugas" | "auditor">("petugas");
   const [showRole, setShowRole] = useState(false);
   const [tanggalBergabung, setTanggalBergabung] = useState("");
   const [tanggalKeluar, setTanggalKeluar] = useState("");
@@ -162,7 +163,7 @@ export default function KelolaAkun() {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     <Text style={{ fontSize: 15, fontWeight: "700", color: Colors.text }}>{u.nama}</Text>
-                    <Badge label={u.role === "admin" ? "Admin" : "Petugas"} variant={u.role === "admin" ? "success" : "info"} small />
+                    <Badge label={u.role === "admin" ? "Admin" : (u.role === "auditor" ? "Auditor" : "Petugas")} variant={u.role === "admin" ? "success" : (u.role === "auditor" ? "warning" : "info")} small />
                     {u.tanggal_keluar && <Badge label="Resign" variant="error" small />}
                   </View>
                   <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>{u.no_hp}</Text>

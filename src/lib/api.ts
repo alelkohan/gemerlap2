@@ -23,7 +23,7 @@ export type User = {
   id: string;
   nama: string;
   no_hp: string;
-  role: "admin" | "petugas";
+  role: "admin" | "petugas" | "auditor";
   created_at?: string;
 };
 
