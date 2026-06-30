@@ -1534,8 +1534,11 @@ async def dashboard_stats(bulan: Optional[str] = None, current=Depends(get_curre
 
 # ============== KASBON ==============
 @api_router.get('/kasbon')
-async def get_all_kasbon(current=Depends(admin_required)):
-    docs = await db.kasbon.find({}, {'_id': 0}).sort('tanggal', -1).to_list(1000)
+async def get_all_kasbon(bulan: Optional[str] = None, current=Depends(admin_required)):
+    query = {}
+    if bulan:
+        query['tanggal'] = {'$regex': f'^{bulan}'}
+    docs = await db.kasbon.find(query, {'_id': 0}).sort('tanggal', -1).to_list(1000)
     for doc in docs:
         petugas = await db.petugas.find_one({'id': doc['petugas_id']})
         doc['nama_petugas'] = petugas['nama'] if petugas else 'Unknown'
@@ -1543,7 +1546,7 @@ async def get_all_kasbon(current=Depends(admin_required)):
 
 @api_router.get('/kasbon/pending/{petugas_id}')
 async def get_pending_kasbon(petugas_id: str, current=Depends(admin_required)):
-    docs = await db.kasbon.find({'petugas_id': petugas_id, 'status': 'pending'}, {'_id': 0}).to_list(100)
+    docs = await db.kasbon.find({'petugas_id': petugas_id, 'status': 'belum_lunas'}, {'_id': 0}).to_list(100)
     return docs
 
 @api_router.post('/kasbon')
