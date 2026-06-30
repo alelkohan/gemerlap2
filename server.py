@@ -1191,9 +1191,14 @@ async def get_attendance_status(current=Depends(get_current_user)):
     
     daily_record = await db.absensi.find_one({'petugas_id': petugas_id, 'tanggal': tanggal_str}, {'_id': 0})
     
-    setting = await db.settings.find_one({'key': 'target_jam_kerja'})
+    user = await db.users.find_one({'id': current['id']})
     wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
-    target_jam = setting.get('jam', 8.0) if (setting and setting.get('tanggal') == wib_today) else 8.0
+    
+    target_jam = 8.0
+    if user and user.get('target_jam_kerja'):
+        user_target = user['target_jam_kerja']
+        if user_target.get('tanggal') == wib_today:
+            target_jam = user_target.get('jam', 8.0)
     
     return {
         'petugas_id': petugas_id,
@@ -1661,7 +1666,16 @@ async def update_lembur_status(id: str, req: LemburStatusUpdate, current=Depends
         # lembur has petugas_id. We need the user_id of that petugas.
         petugas = await db.petugas.find_one({'id': lembur['petugas_id']})
         if petugas and petugas.get('user_id'):
-            target_jam = 8.0 + lembur['durasi_jam']
+            # Calculate total approved lembur for this petugas today
+            approved_lemburs = await db.lembur.find({
+                'petugas_id': lembur['petugas_id'],
+                'tanggal': lembur['tanggal'],
+                'status': 'approved'
+            }).to_list(100)
+            
+            total_lembur_jam = sum([l.get('durasi_jam', 0) for l in approved_lemburs])
+            target_jam = 8.0 + total_lembur_jam
+            
             await db.users.update_one(
                 {'id': petugas['user_id']},
                 {'$set': {
