@@ -484,10 +484,10 @@ export default function AbsenScreen() {
     try {
       await apiFetch("/lembur", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           durasi_jam: Number(lemburJam),
           alasan: lemburAlasan
-        })
+        }
       });
       setLemburModalVisible(false);
       setLemburJam("");

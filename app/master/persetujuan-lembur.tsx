@@ -50,7 +50,7 @@ export default function PersetujuanLemburScreen() {
               setProcessing(id);
               await apiFetch(`/lembur/${id}/status`, {
                 method: "PUT",
-                body: JSON.stringify({ status: action })
+                body: { status: action }
               });
               Alert.alert("Sukses", `Pengajuan berhasil di${action === "approved" ? "setujui" : "tolak"}`);
               load();
