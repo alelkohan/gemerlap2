@@ -265,7 +265,7 @@ export async function generateLaporanAbsensiPdf(rekap: any[], bulanLabel: string
     .join("");
   const html = `
     ${HEADER_HTML}
-    <h1 class="title">LAPORAN ABSENSI</h1>
+    <h1 class="title">LAPORAN ABSENSI (REKAP)</h1>
     <div style="font-size:12px;color:#4b5563;margin-bottom:12px;">Bulan: ${bulanLabel}</div>
     <table>
       <thead><tr><th>Nama Petugas</th><th style="text-align:center">Hadir</th><th style="text-align:center">Absen</th><th style="text-align:center">Izin</th><th style="text-align:center">Sakit</th></tr></thead>
@@ -275,8 +275,76 @@ export async function generateLaporanAbsensiPdf(rekap: any[], bulanLabel: string
     ${FOOTER_HTML}
   `;
   const safeBulan = bulanLabel.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").toLowerCase();
-  await printPdf(html, `Laporan-Absensi-${safeBulan}.pdf`);
+  await printPdf(html, `Laporan-Absensi-Rekap-${safeBulan}.pdf`);
 }
+
+export async function generateLaporanAbsensiDetailPdf(data: any[], bulanLabel: string, userName: string) {
+  let content = "";
+  
+  if (data.length === 0) {
+    content = `<div style="text-align:center;padding:20px;color:#9ca3af">Tidak ada data untuk petugas yang dipilih.</div>`;
+  } else {
+    content = data.map(petugas => {
+      let hadir=0, izin=0, sakit=0, absen=0;
+      const detailRows = petugas.kehadiran.map((k: any) => {
+        if (k.status === 'hadir') hadir++;
+        else if (k.status === 'izin') izin++;
+        else if (k.status === 'sakit') sakit++;
+        else absen++;
+        
+        const isHadir = k.status === 'hadir';
+        const color = isHadir ? '#10b981' : (k.status === 'izin' ? '#f5a623' : (k.status === 'sakit' ? '#3b82f6' : '#ef4444'));
+        
+        let sessionDesc = "-";
+        if (isHadir && k.sessions && k.sessions.length > 0) {
+          sessionDesc = k.sessions.map((s: any) => {
+            const out = s.check_out ? s.check_out.slice(0,5) : "...";
+            return `[${s.check_in.slice(0,5)} - ${out}]`;
+          }).join(", ");
+        } else if (!isHadir) {
+          sessionDesc = k.alasan || "-";
+        }
+        
+        return `
+        <tr>
+          <td>${formatTanggalID(k.tanggal)}</td>
+          <td style="color:${color};font-weight:700;text-transform:capitalize">${k.status}</td>
+          <td>${isHadir ? k.jam.toFixed(1) + " jam" : "-"}</td>
+          <td>${sessionDesc}</td>
+        </tr>
+        `;
+      }).join("");
+
+      return `
+      <div style="margin-top: 24px; margin-bottom: 16px;">
+        <h2 style="font-size: 14px; font-weight: 700; color: #1a7a4a; margin-bottom: 8px;">${petugas.nama}</h2>
+        <div style="display:flex;gap:12px;margin-bottom:12px;">
+          <div style="background:#f3f4f6;padding:8px;border-radius:4px;font-size:11px;flex:1;text-align:center">Hadir: <strong style="color:#10b981">${hadir}</strong></div>
+          <div style="background:#f3f4f6;padding:8px;border-radius:4px;font-size:11px;flex:1;text-align:center">Sakit: <strong style="color:#3b82f6">${sakit}</strong></div>
+          <div style="background:#f3f4f6;padding:8px;border-radius:4px;font-size:11px;flex:1;text-align:center">Izin: <strong style="color:#f5a623">${izin}</strong></div>
+          <div style="background:#f3f4f6;padding:8px;border-radius:4px;font-size:11px;flex:1;text-align:center">Alpha: <strong style="color:#ef4444">${absen}</strong></div>
+        </div>
+        <table>
+          <thead><tr><th>Tanggal</th><th>Status</th><th>Durasi</th><th>Detail Sesi / Alasan</th></tr></thead>
+          <tbody>${detailRows}</tbody>
+        </table>
+      </div>
+      `;
+    }).join("");
+  }
+
+  const html = `
+    ${HEADER_HTML}
+    <h1 class="title">LAPORAN ABSENSI (DETAIL)</h1>
+    <div style="font-size:12px;color:#4b5563;margin-bottom:12px;">Bulan: ${bulanLabel}</div>
+    ${content}
+    <div style="margin-top:32px;font-size:10px;color:#9ca3af;">Dicetak oleh: ${userName} pada ${formatTanggalID(new Date().toISOString().slice(0, 10))}</div>
+    ${FOOTER_HTML}
+  `;
+  const safeBulan = bulanLabel.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").toLowerCase();
+  await printPdf(html, `Laporan-Absensi-Detail-${safeBulan}.pdf`);
+}
+
 
 export async function generateLaporanPenjualanPdf(data: any, judul: string, userName: string) {
   const items = data.items || [];

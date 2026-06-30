@@ -10,7 +10,7 @@ import { useAuth } from "@/src/lib/auth-context";
 import { Colors } from "@/src/lib/theme";
 import { useColors } from "@/src/lib/theme-context";
 import { todayISO, formatTanggalID, currentBulan, bulanLabel } from "@/src/lib/format";
-import { generateLaporanTimbanganPdf, generateLaporanKeuanganPdf, generateLaporanAbsensiPdf, generateLaporanPenjualanPdf, generateLaporanNeracaMassaPdf } from "@/src/lib/pdf";
+import { generateLaporanTimbanganPdf, generateLaporanKeuanganPdf, generateLaporanAbsensiPdf, generateLaporanAbsensiDetailPdf, generateLaporanPenjualanPdf, generateLaporanNeracaMassaPdf } from "@/src/lib/pdf";
 
 type Jenis = "timbangan" | "keuangan" | "absensi" | "penjualan" | "neraca";
 
@@ -35,15 +35,18 @@ export default function LaporanScreen() {
   const [selectedKomoditas, setSelectedKomoditas] = useState<Set<string>>(new Set());
   const [loadingKomoditas, setLoadingKomoditas] = useState(false);
 
+  // Petugas filter state
+  const [petugasList, setPetugasList] = useState<any[]>([]);
+  const [selectedPetugas, setSelectedPetugas] = useState<Set<string>>(new Set());
+  const [loadingPetugas, setLoadingPetugas] = useState(false);
+
   // Load daftar komoditas saat pilih penjualan
   const loadKomoditas = useCallback(async () => {
     setLoadingKomoditas(true);
     try {
       const list = await apiFetch<JenisSampah[]>("/jenis-sampah");
-      // Filter hanya tipe komoditas
       const komoditas = list.filter((j) => j.tipe === "komoditas");
       setKomoditasList(komoditas);
-      // Default: semua dipilih
       setSelectedKomoditas(new Set(komoditas.map((k) => k.id)));
     } catch (e: any) {
       Alert.alert("Error", "Gagal memuat daftar komoditas: " + e.message);
@@ -52,11 +55,27 @@ export default function LaporanScreen() {
     }
   }, []);
 
+  const loadPetugas = useCallback(async () => {
+    setLoadingPetugas(true);
+    try {
+      const list = await apiFetch<any[]>("/petugas");
+      const activePetugas = list.filter((p) => p.status === true);
+      setPetugasList(activePetugas);
+      setSelectedPetugas(new Set(activePetugas.map((p) => p.id)));
+    } catch (e: any) {
+      Alert.alert("Error", "Gagal memuat daftar petugas: " + e.message);
+    } finally {
+      setLoadingPetugas(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (jenis === "penjualan") {
       loadKomoditas();
+    } else if (jenis === "absensi") {
+      loadPetugas();
     }
-  }, [jenis, loadKomoditas]);
+  }, [jenis, loadKomoditas, loadPetugas]);
 
   const semuaDipilih = komoditasList.length > 0 && selectedKomoditas.size === komoditasList.length;
   const sebagianDipilih = selectedKomoditas.size > 0 && !semuaDipilih;
@@ -81,9 +100,36 @@ export default function LaporanScreen() {
     });
   };
 
+  const semuaDipilihPetugas = petugasList.length > 0 && selectedPetugas.size === petugasList.length;
+  const sebagianDipilihPetugas = selectedPetugas.size > 0 && !semuaDipilihPetugas;
+
+  const togglePilihSemuaPetugas = () => {
+    if (semuaDipilihPetugas) {
+      setSelectedPetugas(new Set());
+    } else {
+      setSelectedPetugas(new Set(petugasList.map((p) => p.id)));
+    }
+  };
+
+  const togglePetugas = (id: string) => {
+    setSelectedPetugas((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const generate = async () => {
     if (jenis === "penjualan" && selectedKomoditas.size === 0) {
       Alert.alert("Perhatian", "Pilih minimal satu komoditas.");
+      return;
+    }
+    if (jenis === "absensi" && selectedPetugas.size === 0) {
+      Alert.alert("Perhatian", "Pilih minimal satu petugas.");
       return;
     }
     setLoading(true);
@@ -105,9 +151,15 @@ export default function LaporanScreen() {
       } else if (jenis === "neraca") {
         const items = await apiFetch<any[]>(`/laporan/neraca-massa?start=${start}&end=${end}`);
         await generateLaporanNeracaMassaPdf(items, `${formatTanggalID(start)} - ${formatTanggalID(end)}`, user?.nama || "User");
-      } else {
-        const items = await apiFetch<any[]>(`/laporan/absensi?bulan=${bulan}`);
-        await generateLaporanAbsensiPdf(items, bulanLabel(bulan), user?.nama || "User");
+      } else if (jenis === "absensi") {
+        if (semuaDipilihPetugas) {
+          const items = await apiFetch<any[]>(`/laporan/absensi?bulan=${bulan}`);
+          await generateLaporanAbsensiPdf(items, bulanLabel(bulan), user?.nama || "User");
+        } else {
+          const pids = Array.from(selectedPetugas).join(",");
+          const items = await apiFetch<any[]>(`/laporan/absensi-detail?bulan=${bulan}&petugas_ids=${pids}`);
+          await generateLaporanAbsensiDetailPdf(items, bulanLabel(bulan), user?.nama || "User");
+        }
       }
     } catch (e: any) {
       Alert.alert("Error", e.message);
@@ -170,6 +222,68 @@ export default function LaporanScreen() {
               <TouchableOpacity onPress={() => setBulan(addMonthsLocal(bulan, 1))} style={styles.bulanBtn}>
                 <Ionicons name="chevron-forward" size={20} color={Colors.text} />
               </TouchableOpacity>
+            </View>
+
+            <View style={{ marginTop: 12 }}>
+              <Text style={styles.label}>Filter Petugas</Text>
+              <View style={styles.komoditasContainer}>
+                {loadingPetugas ? (
+                  <Text style={{ color: Colors.textSecondary, fontSize: 13, padding: 8 }}>Memuat petugas...</Text>
+                ) : petugasList.length === 0 ? (
+                  <Text style={{ color: Colors.textSecondary, fontSize: 13, padding: 8 }}>Tidak ada petugas tersedia.</Text>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={styles.checkboxRow}
+                      onPress={togglePilihSemuaPetugas}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[
+                        styles.checkbox,
+                        (semuaDipilihPetugas || sebagianDipilihPetugas) && { borderColor: Colors.primary, backgroundColor: semuaDipilihPetugas ? Colors.primary : Colors.surface },
+                      ]}>
+                        {semuaDipilihPetugas && <Ionicons name="checkmark" size={14} color="#fff" />}
+                        {sebagianDipilihPetugas && (
+                          <View style={{ width: 8, height: 2, backgroundColor: Colors.primary, borderRadius: 2 }} />
+                        )}
+                      </View>
+                      <Text style={[styles.checkboxLabel, { fontWeight: "700", color: Colors.text }]}>
+                        Pilih Semua (Rekap Saja)
+                      </Text>
+                      <Text style={styles.checkboxBadge}>
+                        {selectedPetugas.size}/{petugasList.length}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={{ height: 1, backgroundColor: Colors.borderLight, marginVertical: 4 }} />
+
+                    {petugasList.map((p) => {
+                      const checked = selectedPetugas.has(p.id);
+                      return (
+                        <TouchableOpacity
+                          key={p.id}
+                          style={styles.checkboxRow}
+                          onPress={() => togglePetugas(p.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[
+                            styles.checkbox,
+                            checked && { borderColor: Colors.primary, backgroundColor: Colors.primary },
+                          ]}>
+                            {checked && <Ionicons name="checkmark" size={14} color="#fff" />}
+                          </View>
+                          <Text style={[styles.checkboxLabel, { color: Colors.text }]}>{p.nama}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </>
+                )}
+              </View>
+              {sebagianDipilihPetugas && (
+                <Text style={{ fontSize: 11, color: Colors.textTertiary, marginTop: 6, fontStyle: 'italic' }}>
+                  *Memilih spesifik petugas akan menghasilkan Laporan Detail (termasuk durasi, catatan & log sesi).
+                </Text>
+              )}
             </View>
           </>
         ) : (
