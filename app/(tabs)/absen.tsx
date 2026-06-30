@@ -927,14 +927,14 @@ export default function AbsenScreen() {
 
       {/* Lembur Modal */}
       <Modal transparent animationType="fade" visible={lemburModalVisible} onRequestClose={() => setLemburModalVisible(false)} statusBarTranslucent>
-        <View style={sharedModal.overlay}>
-          <View style={[sharedModal.modal, { backgroundColor: Colors.surface }]}>
+        <Pressable style={sharedModal.overlay} onPress={() => setLemburModalVisible(false)}>
+          <Pressable style={[sharedModal.sheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
             <Text style={[sharedModal.title, { color: Colors.text }]}>Ajukan Lembur</Text>
-            <Text style={[sharedModal.subtitle, { color: Colors.textSecondary, marginBottom: 16 }]}>
+            <Text style={[sharedModal.body, { color: Colors.textSecondary, marginBottom: 16 }]}>
               Berapa jam tambahan yang Anda butuhkan hari ini?
             </Text>
 
-            <View style={{ marginBottom: 12 }}>
+            <View style={{ width: "100%", marginBottom: 12 }}>
               <Text style={styles.inputLabel}>Durasi (Jam)</Text>
               <View style={styles.textInput}>
                 <Ionicons name="time-outline" size={16} color={Colors.textSecondary} />
@@ -949,7 +949,7 @@ export default function AbsenScreen() {
               </View>
             </View>
 
-            <View style={{ marginBottom: 20 }}>
+            <View style={{ width: "100%", marginBottom: 20 }}>
               <Text style={styles.inputLabel}>Alasan / Pekerjaan</Text>
               <View style={styles.textInput}>
                 <Ionicons name="create-outline" size={16} color={Colors.textSecondary} />
