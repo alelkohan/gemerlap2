@@ -1550,7 +1550,7 @@ async def dashboard_stats(bulan: Optional[str] = None, current=Depends(get_curre
 
 
 # ============== KASBON ==============
-@api_router.get('/kasbon/all')
+@api_router.get('/kasbon')
 async def get_all_kasbon(bulan: Optional[str] = None, current=Depends(admin_or_auditor_required)):
     query = {}
     if bulan:
@@ -1561,7 +1561,7 @@ async def get_all_kasbon(bulan: Optional[str] = None, current=Depends(admin_or_a
         doc['nama_petugas'] = petugas['nama'] if petugas else 'Unknown'
     return docs
 
-@api_router.get('/kasbon/pending')
+@api_router.get('/kasbon/pending/{petugas_id}')
 async def get_pending_kasbon(petugas_id: str, current=Depends(admin_or_auditor_required)):
     docs = await db.kasbon.find({'petugas_id': petugas_id, 'status': {'$in': ['belum_lunas', 'pending']}}, {'_id': 0}).to_list(100)
     return docs
