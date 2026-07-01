@@ -99,6 +99,11 @@ async def admin_required(current=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail='Admin only')
     return current
 
+async def admin_or_auditor_required(current=Depends(get_current_user)):
+    if current.get('role') not in ['admin', 'auditor']:
+        raise HTTPException(status_code=403, detail='Admin or Auditor only')
+    return current
+
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -129,16 +134,16 @@ def delete_cloudinary_image(url: str):
         print("Failed to delete cloudinary image", e)
 
 
-async def get_petugas_for_user(user_id: str) -> Optional[dict]:
+async def get_petugas_for_user(user_id: str, ignore_auditors: bool = False) -> Optional[dict]:
     petugas = await db.petugas.find_one({'user_id': user_id})
     if not petugas:
         user = await db.users.find_one({'id': user_id})
-        if user:
+        if user and user.get('role') != 'auditor':
             petugas = {
                 'id': user_id,
                 'nama': user['nama'],
                 'no_hp': user['no_hp'],
-                'jabatan': 'Admin' if user['role'] == 'admin' else ('Auditor' if user['role'] == 'auditor' else 'Petugas'),
+                'jabatan': 'Admin' if user['role'] == 'admin' else 'Petugas',
                 'tgl_bergabung': datetime.now().strftime('%Y-%m-%d'),
                 'status': True,
                 'user_id': user_id,
@@ -430,7 +435,7 @@ async def change_password(req: ChangePasswordRequest, current=Depends(get_curren
 
 # ============== USERS (admin) ==============
 @api_router.get('/users')
-async def list_users(current=Depends(admin_required)):
+async def list_users(current=Depends(admin_or_auditor_required)):
     users = await db.users.find({}, {'_id': 0, 'password_hash': 0}).to_list(1000)
     
     user_ids = [u['id'] for u in users]
@@ -925,8 +930,8 @@ async def get_absensi_by_date(tanggal: str, current=Depends(get_current_user)):
     return await db.absensi.find({'tanggal': tanggal}, {'_id': 0}).to_list(1000)
 
 
-@api_router.get('/absensi/detail')
-async def get_absensi_detail(petugas_id: str, bulan: str, current=Depends(admin_required)):
+@api_router.get('/absensi/detail/{petugas_id}')
+async def get_absensi_detail(petugas_id: str, bulan: str, current=Depends(admin_or_auditor_required)):
     """Return all daily absensi records for a petugas in a given month (YYYY-MM)."""
     records = await db.absensi.find(
         {'petugas_id': petugas_id, 'tanggal': {'$regex': f'^{bulan}'}},
@@ -981,7 +986,7 @@ async def save_single_absensi(req: AbsensiSingleSave, current=Depends(admin_requ
 
 @api_router.post('/absensi/self')
 async def save_self_absensi(req: AbsensiSelfSave, current=Depends(get_current_user)):
-    petugas = await get_petugas_for_user(current['id'])
+    petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
     if not petugas:
         raise HTTPException(status_code=400, detail='User tidak terdaftar sebagai petugas')
 
@@ -1012,7 +1017,7 @@ async def save_self_absensi(req: AbsensiSelfSave, current=Depends(get_current_us
 
 @api_router.delete('/absensi/self')
 async def delete_self_absensi(current=Depends(get_current_user)):
-    petugas = await get_petugas_for_user(current['id'])
+    petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
     if not petugas:
         raise HTTPException(status_code=400, detail='User tidak terdaftar sebagai petugas')
 
@@ -1030,7 +1035,7 @@ async def delete_self_absensi(current=Depends(get_current_user)):
 
 
 @api_router.get('/absensi/unmarked')
-async def get_unmarked_officers(tanggal: str = None, current=Depends(admin_required)):
+async def get_unmarked_officers(tanggal: str = None, current=Depends(admin_or_auditor_required)):
     """Return list of active officers who have no attendance record for the given date."""
     date_str = tanggal or (datetime.now(timezone.utc) + timedelta(hours=7)).strftime('%Y-%m-%d')
     # Get all active petugas
@@ -1177,7 +1182,7 @@ async def delete_tps_location(id: str, current=Depends(admin_required)):
 
 @api_router.get('/absensi/status')
 async def get_attendance_status(current=Depends(get_current_user)):
-    petugas = await get_petugas_for_user(current['id'])
+    petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
     if not petugas:
         return {'role': current['role'], 'message': 'Admin tidak memiliki status absensi check-in'}
         
@@ -1238,7 +1243,7 @@ async def get_attendance_status(current=Depends(get_current_user)):
 
 @api_router.post('/absensi/check-in')
 async def check_in(req: CheckInRequest, current=Depends(get_current_user)):
-    petugas = await get_petugas_for_user(current['id'])
+    petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
     if not petugas:
         raise HTTPException(status_code=400, detail='User tidak terdaftar sebagai petugas')
         
@@ -1308,7 +1313,7 @@ async def check_in(req: CheckInRequest, current=Depends(get_current_user)):
 
 @api_router.post('/absensi/check-out')
 async def check_out(req: CheckOutRequest, request: Request, current=Depends(get_current_user)):
-    petugas = await get_petugas_for_user(current['id'])
+    petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
     if not petugas:
         raise HTTPException(status_code=400, detail='User tidak terdaftar sebagai petugas')
         
@@ -1359,7 +1364,7 @@ async def check_out(req: CheckOutRequest, request: Request, current=Depends(get_
 
 @api_router.post('/absensi/heartbeat')
 async def heartbeat(req: HeartbeatRequest, current=Depends(get_current_user)):
-    petugas = await get_petugas_for_user(current['id'])
+    petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
     if not petugas:
         raise HTTPException(status_code=400, detail='User tidak terdaftar sebagai petugas')
         
@@ -1449,7 +1454,7 @@ async def heartbeat(req: HeartbeatRequest, current=Depends(get_current_user)):
 @api_router.get('/absensi/sessions')
 async def get_attendance_sessions_by_date(tanggal: str, petugas_id: Optional[str] = None, current=Depends(get_current_user)):
     if not petugas_id:
-        petugas = await get_petugas_for_user(current['id'])
+        petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
         if not petugas:
             raise HTTPException(status_code=400, detail='User tidak terdaftar sebagai petugas')
         petugas_id = petugas['id']
@@ -1545,8 +1550,8 @@ async def dashboard_stats(bulan: Optional[str] = None, current=Depends(get_curre
 
 
 # ============== KASBON ==============
-@api_router.get('/kasbon')
-async def get_all_kasbon(bulan: Optional[str] = None, current=Depends(admin_required)):
+@api_router.get('/kasbon/all')
+async def get_all_kasbon(bulan: Optional[str] = None, current=Depends(admin_or_auditor_required)):
     query = {}
     if bulan:
         query['tanggal'] = {'$regex': f'^{bulan}'}
@@ -1556,8 +1561,8 @@ async def get_all_kasbon(bulan: Optional[str] = None, current=Depends(admin_requ
         doc['nama_petugas'] = petugas['nama'] if petugas else 'Unknown'
     return docs
 
-@api_router.get('/kasbon/pending/{petugas_id}')
-async def get_pending_kasbon(petugas_id: str, current=Depends(admin_required)):
+@api_router.get('/kasbon/pending')
+async def get_pending_kasbon(petugas_id: str, current=Depends(admin_or_auditor_required)):
     docs = await db.kasbon.find({'petugas_id': petugas_id, 'status': {'$in': ['belum_lunas', 'pending']}}, {'_id': 0}).to_list(100)
     return docs
 
@@ -1649,7 +1654,7 @@ async def create_lembur(req: LemburRequestCreate, current=Depends(get_current_us
     return {'message': 'Pengajuan lembur berhasil dikirim', 'data': lembur_doc}
 
 @api_router.get('/lembur/pending')
-async def get_pending_lembur(current=Depends(admin_required)):
+async def get_pending_lembur(current=Depends(admin_or_auditor_required)):
     wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
     # Can also fetch older pending if needed, but usually we just fetch all pending
     requests = await db.lembur.find({'status': 'pending'}).sort('created_at', -1).to_list(1000)
@@ -1733,7 +1738,7 @@ async def update_lembur_status(id: str, req: LemburStatusUpdate, current=Depends
 
 # ============== GAJI & SLIP GAJI ==============
 @api_router.get('/gaji/{petugas_id}')
-async def get_gaji(petugas_id: str, periode: str, current=Depends(admin_required)):
+async def get_gaji(petugas_id: str, periode: str, current=Depends(admin_or_auditor_required)):
     gaji = await db.gaji.find_one({'petugas_id': petugas_id, 'periode': periode}, {'_id': 0})
     if not gaji:
         raise HTTPException(status_code=404, detail='Gaji not found')
@@ -1829,7 +1834,7 @@ async def create_gaji(req: GajiCreate, current=Depends(admin_required)):
 
 # ============== LAPORAN ==============
 @api_router.get('/laporan/neraca-massa')
-async def laporan_neraca_massa(start: str, end: str, current=Depends(admin_required)):
+async def laporan_neraca_massa(start: str, end: str, current=Depends(admin_or_auditor_required)):
     items = await db.timbangan.find(
         {'tanggal': {'$gte': start, '$lte': end}}, {'_id': 0}
     ).to_list(50000)
@@ -1882,7 +1887,7 @@ async def laporan_neraca_massa(start: str, end: str, current=Depends(admin_requi
     return result
 
 @api_router.get('/laporan/neraca-keuangan')
-async def laporan_neraca_keuangan(start: str, end: str, current=Depends(admin_required)):
+async def laporan_neraca_keuangan(start: str, end: str, current=Depends(admin_or_auditor_required)):
     items = await db.keuangan.find(
         {'tanggal': {'$gte': start, '$lte': end}}, {'_id': 0}
     ).to_list(50000)
@@ -1930,7 +1935,7 @@ async def laporan_neraca_keuangan(start: str, end: str, current=Depends(admin_re
     return result
 
 @api_router.get('/laporan/timbangan')
-async def laporan_timbangan(start: str, end: str, current=Depends(admin_required)):
+async def laporan_timbangan(start: str, end: str, current=Depends(admin_or_auditor_required)):
     items = await db.timbangan.find(
         {'tanggal': {'$gte': start, '$lte': end}}, {'_id': 0}
     ).sort('tanggal', 1).to_list(5000)
@@ -1945,7 +1950,7 @@ async def laporan_timbangan(start: str, end: str, current=Depends(admin_required
 
 
 @api_router.get('/laporan/keuangan')
-async def laporan_keuangan(start: str, end: str, current=Depends(admin_required)):
+async def laporan_keuangan(start: str, end: str, current=Depends(admin_or_auditor_required)):
     items = await db.keuangan.find(
         {'tanggal': {'$gte': start, '$lte': end}}, {'_id': 0}
     ).sort('tanggal', 1).to_list(5000)
@@ -1953,11 +1958,11 @@ async def laporan_keuangan(start: str, end: str, current=Depends(admin_required)
 
 
 @api_router.get('/laporan/absensi')
-async def laporan_absensi(bulan: str, current=Depends(admin_required)):
+async def laporan_absensi(bulan: str, current=Depends(admin_or_auditor_required)):
     return await rekap_absensi(bulan, current)
 
 @api_router.get('/laporan/absensi-detail')
-async def laporan_absensi_detail(bulan: str, petugas_ids: str, current=Depends(admin_required)):
+async def laporan_absensi_detail(bulan: str, petugas_ids: str, current=Depends(admin_or_auditor_required)):
     """Fetches detailed daily attendance and session data for specific officers."""
     id_list = [pid.strip() for pid in petugas_ids.split(',') if pid.strip()]
     if not id_list:
@@ -2009,7 +2014,7 @@ async def laporan_absensi_detail(bulan: str, petugas_ids: str, current=Depends(a
 
 
 @api_router.get('/laporan/penjualan')
-async def laporan_penjualan(start: str, end: str, jenis_ids: str = None, current=Depends(admin_required)):
+async def laporan_penjualan(start: str, end: str, jenis_ids: str = None, current=Depends(admin_or_auditor_required)):
     """Penjualan komoditas report for a date range. Returns items enriched with jenis_sampah_nama + summary per jenis.
     Optional: jenis_ids = comma-separated list of jenis_sampah_id to filter."""
     query = {'tipe': 'penjualan', 'tanggal': {'$gte': start, '$lte': end}}
