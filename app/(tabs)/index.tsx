@@ -133,8 +133,8 @@ export default function HomeScreen() {
             <Text style={styles.userName}>{user?.nama}</Text>
           </View>
           <Badge
-            label={user?.role === "admin" ? "Admin" : "Petugas"}
-            variant={user?.role === "admin" ? "success" : "info"}
+            label={user?.role === "admin" ? "Admin" : (user?.role === "auditor" ? "Auditor" : "Petugas")}
+            variant={user?.role === "admin" ? "success" : (user?.role === "auditor" ? "warning" : "info")}
           />
         </View>
 
