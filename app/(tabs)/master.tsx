@@ -14,7 +14,7 @@ export default function MasterScreen() {
   const styles = useMemo(() => baseStyles(Colors), [Colors]);
   const router = useRouter();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const hasAdminAccess = user?.role === "admin" || user?.role === "auditor";
 
   const groupedMenus = [
     {
@@ -59,7 +59,7 @@ export default function MasterScreen() {
               </Text>
               <View style={{ gap: 10 }}>
                 {group.items.map((m) => {
-                  const locked = m.adminOnly && !isAdmin;
+                  const locked = m.adminOnly && !hasAdminAccess;
                   return (
                     <TouchableOpacity
                       key={m.path}

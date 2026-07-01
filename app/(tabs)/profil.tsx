@@ -47,8 +47,8 @@ export default function ProfilScreen() {
           <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 2 }}>{user.no_hp}</Text>
           <View style={{ marginTop: 10 }}>
             <Badge
-              label={user.role === "admin" ? "Administrator" : "Petugas"}
-              variant={user.role === "admin" ? "success" : "info"}
+              label={user.role === "admin" ? "Administrator" : (user.role === "auditor" ? "Auditor" : "Petugas")}
+              variant={user.role === "admin" ? "success" : (user.role === "auditor" ? "warning" : "info")}
             />
           </View>
           {user.created_at && (
