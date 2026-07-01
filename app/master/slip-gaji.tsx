@@ -58,6 +58,7 @@ export default function SlipGajiScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showKasbonWarning, setShowKasbonWarning] = useState(true);
   const [showImageZoom, setShowImageZoom] = useState(false);
+  const [minPotonganKasbon, setMinPotonganKasbon] = useState(0);
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     title: string;
@@ -84,6 +85,7 @@ export default function SlipGajiScreen() {
         if (kasbons && kasbons.length > 0) {
            setKasbonDetails(kasbons);
            const sumKasbon = kasbons.reduce((acc: number, k: any) => acc + k.nominal, 0);
+           setMinPotonganKasbon(sumKasbon);
            pot += sumKasbon;
            kasbons.forEach((k: any) => kIds.push(k.id));
            ketList.push(`Potongan Kasbon (Rp ${sumKasbon.toLocaleString("id-ID")})`);
@@ -180,6 +182,11 @@ export default function SlipGajiScreen() {
   const handleSimpan = async () => {
     if (numGajiPokok <= 0) {
       setAlertConfig({ visible: true, title: "Error", message: "Gaji Pokok harus lebih dari 0", variant: "danger" });
+      return;
+    }
+    
+    if (numPotongan < minPotonganKasbon) {
+      setAlertConfig({ visible: true, title: "Error", message: `Nilai Potongan minimal adalah Rp ${minPotonganKasbon.toLocaleString("id-ID")} karena petugas memiliki tanggungan kasbon.`, variant: "danger" });
       return;
     }
 
