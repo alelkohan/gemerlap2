@@ -509,6 +509,15 @@ async def create_user(req: UserCreate, current=Depends(admin_required)):
     return {k: v for k, v in user_doc.items() if k not in ('password_hash', '_id')}
 
 
+
+class PushTokenReq(BaseModel):
+    push_token: str
+
+@api_router.put('/users/push-token')
+async def update_push_token(req: PushTokenReq, current=Depends(get_current_user)):
+    res = await db.users.update_one({'id': current['id']}, {'$set': {'push_token': req.push_token}})
+    return {'success': True}
+
 @api_router.put('/users/{user_id}')
 async def update_user(user_id: str, req: UserUpdate, current=Depends(admin_required)):
     upd = {}
