@@ -6,14 +6,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { useColors } from "@/src/lib/theme-context";
+import { useAuth } from "@/src/lib/auth-context";
 import { apiFetch } from "@/src/lib/api";
 import { Card } from "@/src/components/ui";
 
 export default function PersetujuanLemburScreen() {
   const Colors = useColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const { user } = useAuth();
+  const isAuditor = user?.role === "auditor";
   const router = useRouter();
-
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
@@ -115,37 +117,39 @@ export default function PersetujuanLemburScreen() {
               <Text style={styles.detailText}>{item.alasan}</Text>
             </View>
 
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[styles.btnTolak, processing === item.id && { opacity: 0.5 }]}
-                disabled={processing !== null}
-                onPress={() => showConfirm(item.id, "rejected")}
-              >
-                {processing === item.id && confirmAction?.action === "rejected" ? (
-                  <ActivityIndicator color={Colors.error} size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="close-circle-outline" size={20} color={Colors.error} />
-                    <Text style={styles.btnTolakText}>Tolak</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.btnSetuju, processing === item.id && { opacity: 0.5 }]}
-                disabled={processing !== null}
-                onPress={() => showConfirm(item.id, "approved")}
-              >
-                {processing === item.id && confirmAction?.action === "approved" ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                    <Text style={styles.btnSetujuText}>Setujui</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
+            {!isAuditor && (
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.btnTolak, processing === item.id && { opacity: 0.5 }]}
+                  disabled={processing !== null}
+                  onPress={() => showConfirm(item.id, "rejected")}
+                >
+                  {processing === item.id && confirmAction?.action === "rejected" ? (
+                    <ActivityIndicator color={Colors.error} size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="close-circle-outline" size={20} color={Colors.error} />
+                      <Text style={styles.btnTolakText}>Tolak</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.btnSetuju, processing === item.id && { opacity: 0.5 }]}
+                  disabled={processing !== null}
+                  onPress={() => showConfirm(item.id, "approved")}
+                >
+                  {processing === item.id && confirmAction?.action === "approved" ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                      <Text style={styles.btnSetujuText}>Setujui</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
           </Card>
         ))}
         <View style={{ height: 40 }} />

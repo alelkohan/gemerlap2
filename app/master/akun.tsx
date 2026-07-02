@@ -23,6 +23,7 @@ export default function KelolaAkun() {
   const Colors = useColors();
   const styles = useMemo(() => baseStyles(Colors), [Colors]);
   const { user } = useAuth();
+  const isAuditor = user?.role === "auditor";
   const [items, setItems] = useState<User[]>([]);
   const [show, setShow] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -176,10 +177,12 @@ export default function KelolaAkun() {
                     </Text>
                   ) : null}
                 </View>
-                <TouchableOpacity onPress={() => openEdit(u)} style={{ padding: 8 }}>
-                  <Ionicons name="create-outline" size={20} color={Colors.info} />
-                </TouchableOpacity>
-                {u.id !== user?.id && (
+                {!isAuditor && (
+                  <TouchableOpacity onPress={() => openEdit(u)} style={{ padding: 8 }}>
+                    <Ionicons name="create-outline" size={20} color={Colors.info} />
+                  </TouchableOpacity>
+                )}
+                {!isAuditor && u.id !== user?.id && (
                   <TouchableOpacity onPress={() => setDeleteId(u.id)} style={{ padding: 8 }}>
                     <Ionicons name="trash-outline" size={20} color={Colors.error} />
                   </TouchableOpacity>
@@ -190,7 +193,7 @@ export default function KelolaAkun() {
         )}
       </ScrollView>
 
-      <FAB onPress={openNew} />
+      {!isAuditor && <FAB onPress={openNew} />}
 
       <Modal visible={show} transparent animationType="slide" onRequestClose={() => setShow(false)}>
         <View style={styles.modalBg}>

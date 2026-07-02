@@ -15,6 +15,7 @@ import { generateSlipGajiPdf } from "@/src/lib/pdf";
 export default function SlipGajiScreen() {
   const Colors = useColors();
   const { user } = useAuth();
+  const isAuditor = user?.role === "auditor";
   const params = useLocalSearchParams();
   
   const petugas_id = params.petugas_id as string;
@@ -359,20 +360,22 @@ export default function SlipGajiScreen() {
               <View style={{ flex: 1 }}>
                 <Button title="Cetak Ulang PDF" icon="print-outline" onPress={handleCetak} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Button 
-                  title="Hapus Slip Gaji" 
-                  icon="trash-outline" 
-                  variant="danger" 
-                  onPress={handleHapus} 
-                  disabled={loading}
-                />
-              </View>
+              {!isAuditor && (
+                <View style={{ flex: 1 }}>
+                  <Button 
+                    title="Hapus Slip Gaji" 
+                    icon="trash-outline" 
+                    variant="danger" 
+                    onPress={handleHapus} 
+                    disabled={loading}
+                  />
+                </View>
+              )}
             </View>
           ) : loading ? (
             <ActivityIndicator size="large" color={Colors.primary} />
           ) : (
-            <Button title="Simpan & Cetak Slip" icon="print-outline" onPress={handleSimpan} />
+            !isAuditor && <Button title="Simpan & Cetak Slip" icon="print-outline" onPress={handleSimpan} />
           )}
         </View>
 

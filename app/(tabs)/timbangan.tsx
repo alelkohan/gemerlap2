@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { apiFetch } from "@/src/lib/api";
+import { useAuth } from "@/src/lib/auth-context";
 import { Colors } from "@/src/lib/theme";
 import { useColors } from "@/src/lib/theme-context";
 import { formatTanggalID, currentBulan, bulanLabel, addMonths } from "@/src/lib/format";
@@ -35,6 +36,8 @@ export default function TimbanganScreen() {
   const Colors = useColors();
   const styles = useMemo(() => baseStyles(Colors), [Colors]);
   const router = useRouter();
+  const { user } = useAuth();
+  const isAuditor = user?.role === "auditor";
   const [items, setItems] = useState<Timbangan[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -217,28 +220,32 @@ export default function TimbanganScreen() {
                     }}
                   >
                     <Ionicons name="layers-outline" size={18} color={Colors.primary} />
-                    <Text style={styles.menuText}>Kelola Pilahan</Text>
+                    <Text style={styles.menuText}>{isAuditor ? "Lihat Pilahan" : "Kelola Pilahan"}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.menuItem}
-                    onPress={() => {
-                      setOpenMenuId(null);
-                      router.push(`/timbangan/form?id=${it.id}`);
-                    }}
-                  >
-                    <Ionicons name="create-outline" size={18} color={Colors.info} />
-                    <Text style={styles.menuText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.menuItem}
-                    onPress={() => {
-                      setOpenMenuId(null);
-                      setDeleteId(it.id);
-                    }}
-                  >
-                    <Ionicons name="trash-outline" size={18} color={Colors.error} />
-                    <Text style={[styles.menuText, { color: Colors.error }]}>Hapus</Text>
-                  </TouchableOpacity>
+                  {!isAuditor && (
+                    <>
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => {
+                          setOpenMenuId(null);
+                          router.push(`/timbangan/form?id=${it.id}`);
+                        }}
+                      >
+                        <Ionicons name="create-outline" size={18} color={Colors.info} />
+                        <Text style={styles.menuText}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => {
+                          setOpenMenuId(null);
+                          setDeleteId(it.id);
+                        }}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                        <Text style={[styles.menuText, { color: Colors.error }]}>Hapus</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </View>
               )}
             </Card>
@@ -246,7 +253,7 @@ export default function TimbanganScreen() {
         )}
       </ScrollView>
 
-      <FAB onPress={() => router.push("/timbangan/form")} testID="add-timbangan-fab" />
+      {!isAuditor && <FAB onPress={() => router.push("/timbangan/form")} testID="add-timbangan-fab" />}
 
       <ConfirmDialog
         visible={!!deleteId}

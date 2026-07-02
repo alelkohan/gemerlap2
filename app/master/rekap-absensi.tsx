@@ -302,7 +302,7 @@ export default function RekapAbsensiScreen() {
     }
 
     try {
-      const data = await apiFetch<DailyRecord[]>(`/absensi/detail?petugas_id=${petugas.id}&bulan=${bulan}`);
+      const data = await apiFetch<DailyRecord[]>(`/absensi/detail/${petugas.id}?bulan=${bulan}`);
       setDetailRecords(data);
     } catch {
       setDetailRecords([]);
