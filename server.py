@@ -5,6 +5,27 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import requests
+import threading
+
+def _send_push(expo_push_token: str, title: str, body: str, data: dict = None):
+    try:
+        requests.post(
+            'https://exp.host/--/api/v2/push/send',
+            json={
+                "to": expo_push_token,
+                "sound": "default",
+                "title": title,
+                "body": body,
+                "data": data or {}
+            }
+        )
+    except Exception as e:
+        logging.error(f"Failed to send push notification: {e}")
+
+async def send_push_notification(expo_push_token: str, title: str, body: str, data: dict = None):
+    threading.Thread(target=_send_push, args=(expo_push_token, title, body, data)).start()
+
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
