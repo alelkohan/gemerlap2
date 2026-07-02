@@ -1672,6 +1672,26 @@ async def get_my_lembur(current=Depends(get_current_user)):
         r.pop('_id', None)
     return requests
 
+@api_router.delete('/lembur/{id}')
+async def delete_lembur(id: str, current=Depends(get_current_user)):
+    petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
+    if not petugas:
+        raise HTTPException(status_code=400, detail="User tidak terdaftar sebagai petugas")
+        
+    lembur = await db.lembur.find_one({'id': id})
+    if not lembur:
+        raise HTTPException(status_code=404, detail="Data lembur tidak ditemukan")
+        
+    if lembur['petugas_id'] != petugas['id'] and current['role'] != 'admin':
+        raise HTTPException(status_code=403, detail="Tidak memiliki akses")
+        
+    if lembur['status'] != 'pending':
+        raise HTTPException(status_code=400, detail="Hanya pengajuan berstatus pending yang dapat dihapus")
+        
+    await db.lembur.delete_one({'id': id})
+    return {"status": "ok", "message": "Pengajuan lembur dihapus"}
+
+
 @api_router.put('/lembur/{id}/status')
 async def update_lembur_status(id: str, req: LemburStatusUpdate, current=Depends(admin_required)):
     if req.status not in ['approved', 'rejected']:
