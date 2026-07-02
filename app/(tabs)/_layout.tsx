@@ -4,10 +4,18 @@ import { useAuth } from "@/src/lib/auth-context";
 import { Colors as DefaultColors } from "@/src/lib/theme";
 import { useColors } from "@/src/lib/theme-context";
 import { View, ActivityIndicator, Platform } from "react-native";
+import { useEffect } from "react";
+import { registerForPushNotificationsAsync } from "@/src/lib/push-token";
 
 export default function TabsLayout() {
   const { user, loading } = useAuth();
   const Colors = useColors();
+
+  useEffect(() => {
+    if (user) {
+      registerForPushNotificationsAsync();
+    }
+  }, [user]);
 
   if (loading) {
     return (
