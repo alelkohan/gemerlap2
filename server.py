@@ -1663,11 +1663,14 @@ async def get_pending_lembur(current=Depends(admin_or_auditor_required)):
     return requests
 
 @api_router.get('/lembur/my')
-async def get_my_lembur(current=Depends(get_current_user)):
+async def get_my_lembur(tanggal: Optional[str] = None, current=Depends(get_current_user)):
     petugas = await get_petugas_for_user(current['id'])
     if not petugas:
         return []
-    requests = await db.lembur.find({'petugas_id': petugas['id']}).sort('created_at', -1).limit(20).to_list(100)
+    query = {'petugas_id': petugas['id']}
+    if tanggal:
+        query['tanggal'] = tanggal
+    requests = await db.lembur.find(query).sort('created_at', -1).limit(20).to_list(100)
     for r in requests:
         r.pop('_id', None)
     return requests
