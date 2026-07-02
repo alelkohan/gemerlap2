@@ -8,7 +8,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useColors } from "@/src/lib/theme-context";
 import { useAuth } from "@/src/lib/auth-context";
 import { apiFetch } from "@/src/lib/api";
-import { Card } from "@/src/components/ui";
+import { Card, AlertDialog } from "@/src/components/ui";
 
 export default function PersetujuanLemburScreen() {
   const Colors = useColors();
@@ -21,6 +21,7 @@ export default function PersetujuanLemburScreen() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{id: string, action: "approved" | "rejected"} | null>(null);
+  const [alertConfig, setAlertConfig] = useState<{ visible: boolean; title: string; message: string; variant?: "primary" | "danger" | "outline"; onConfirm?: () => void }>({ visible: false, title: "", message: "" });
 
   const load = async () => {
     try {
@@ -28,7 +29,7 @@ export default function PersetujuanLemburScreen() {
       const res = await apiFetch("/lembur/pending");
       setData(res || []);
     } catch (e: any) {
-      Alert.alert("Gagal memuat", e.message || "Gagal mengambil antrean lembur");
+      setAlertConfig({ visible: true, title: "Gagal memuat", message: e.message || "Gagal mengambil antrean lembur", variant: "danger" });
     } finally {
       setLoading(false);
     }
@@ -55,11 +56,15 @@ export default function PersetujuanLemburScreen() {
         method: "PUT",
         body: { status: action }
       });
-      // Sukses notifikasi menggunakan alert agar simple setelah aksi selesai, atau biarkan load data
-      Alert.alert("Sukses", `Pengajuan berhasil di${action === "approved" ? "setujui" : "tolak"}`);
-      load();
+      setAlertConfig({
+        visible: true,
+        title: "Sukses",
+        message: `Pengajuan berhasil di${action === "approved" ? "setujui" : "tolak"}`,
+        variant: action === "approved" ? "primary" : "danger",
+        onConfirm: () => load()
+      });
     } catch (e: any) {
-      Alert.alert("Gagal", e.message || "Terjadi kesalahan saat memproses");
+      setAlertConfig({ visible: true, title: "Gagal", message: e.message || "Terjadi kesalahan saat memproses", variant: "danger" });
     } finally {
       setProcessing(null);
       setConfirmAction(null);
@@ -202,6 +207,17 @@ export default function PersetujuanLemburScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <AlertDialog
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        variant={alertConfig.variant}
+        onConfirm={() => {
+          setAlertConfig(prev => ({ ...prev, visible: false }));
+          if (alertConfig.onConfirm) alertConfig.onConfirm();
+        }}
+      />
     </SafeAreaView>
   );
 }
