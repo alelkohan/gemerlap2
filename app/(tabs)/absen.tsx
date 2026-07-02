@@ -353,9 +353,9 @@ export default function AbsenScreen() {
     }
   }, []);
 
-  const loadLembur = useCallback(async () => {
+  const loadLembur = useCallback(async (dateStr: string) => {
     try {
-      const list = await apiFetch("/lembur/my");
+      const list = await apiFetch(`/lembur/my?tanggal=${dateStr}`);
       setLemburHistory(list || []);
     } catch (e) {
       console.warn("Load lembur failed:", e);
@@ -363,7 +363,7 @@ export default function AbsenScreen() {
   }, []);
 
   const loadAll = useCallback(async (dateStr: string) => {
-    await Promise.all([loadStatus(), loadSessions(dateStr), loadLembur()]);
+    await Promise.all([loadStatus(), loadSessions(dateStr), loadLembur(dateStr)]);
   }, [loadStatus, loadSessions, loadLembur]);
 
   useFocusEffect(
@@ -424,7 +424,7 @@ export default function AbsenScreen() {
       await apiFetch(`/lembur/${deleteLemburId}`, { method: "DELETE" });
       setDeleteLemburId(null);
       showResult("success", "Sukses", "Pengajuan lembur berhasil dihapus.");
-      loadLembur();
+      loadLembur(selectedDate);
     } catch (e: any) {
       showResult("error", "Gagal", e.message || "Gagal membatalkan lembur");
       setDeleteLemburId(null);
@@ -508,7 +508,7 @@ export default function AbsenScreen() {
       setLemburJam("");
       setLemburAlasan("");
       showResult("success", "Berhasil", "Pengajuan lembur telah dikirim dan menunggu persetujuan.");
-      loadLembur();
+      loadLembur(selectedDate);
     } catch (e: any) {
       Alert.alert("Gagal", e.message || "Gagal mengirim pengajuan");
     } finally {
