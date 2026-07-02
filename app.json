@@ -2,7 +2,7 @@
   "expo": {
     "name": "ASA Green",
     "slug": "frontend",
-    "version": "1.0.0",
+    "version": "2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "asagreen",
@@ -41,7 +41,8 @@
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION"
-      ]
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro",
