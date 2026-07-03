@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "625162826316",
+    "project_id": "asa-green",
+    "storage_bucket": "asa-green.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:625162826316:android:e9500fc2b6d6ca232ebae9",
+        "android_client_info": {
+          "package_name": "com.gemerlap.tpsmanager"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgEsIqw3RJl9rXqARlN2DNVA9koV52zFg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

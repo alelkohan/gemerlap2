@@ -67,6 +67,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="keuangan"
+        options={{
+          title: "Keuangan",
+          href: user?.role === "auditor" ? "/(tabs)/keuangan" : null,
+          tabBarIcon: ({ color, size }) => <Ionicons name="wallet" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="master"
         options={{
           title: "Master",
@@ -80,6 +88,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="person-circle" size={size} color={color} />,
         }}
       />
+
     </Tabs>
   );
 }
