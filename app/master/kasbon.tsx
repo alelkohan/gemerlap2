@@ -39,7 +39,8 @@ export default function KasbonScreen() {
         apiFetch("/users")
       ]);
       setData(res || []);
-      setPetugasList(pList || []);
+      // Exclude auditors from dropdown
+      setPetugasList((pList || []).filter((u: any) => u.role !== "auditor"));
     } catch (e: any) {
       Alert.alert("Error", e.message);
     } finally {
