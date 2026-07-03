@@ -968,7 +968,7 @@ async def get_absensi_by_date(tanggal: str, current=Depends(get_current_user)):
 
 
 @api_router.get('/absensi/detail/{petugas_id}')
-async def get_absensi_detail(petugas_id: str, bulan: str, current=Depends(admin_or_auditor_required)):
+async def get_absensi_detail(petugas_id: str, bulan: str, current=Depends(get_current_user)):
     """Return all daily absensi records for a petugas in a given month (YYYY-MM)."""
     records = await db.absensi.find(
         {'petugas_id': petugas_id, 'tanggal': {'$regex': f'^{bulan}'}},
