@@ -992,26 +992,39 @@ export default function AbsenScreen() {
                       "Target Kompos",
                       "Target Magot",
                       "Target Pembakaran Residu",
-                    ].map((opt, idx, arr) => (
-                      <TouchableOpacity
-                        key={opt}
-                        style={{ 
-                          padding: 12, 
-                          borderBottomWidth: idx === arr.length - 1 ? 0 : 1, 
-                          borderBottomColor: Colors.borderLight,
-                          flexDirection: "row",
-                          alignItems: "center",
-                          justifyContent: "space-between"
-                        }}
-                        onPress={() => {
-                          setLemburAlasan(opt);
-                          setShowAlasanPicker(false);
-                        }}
-                      >
-                        <Text style={{ fontSize: 14, color: Colors.text }}>{opt}</Text>
-                        {lemburAlasan === opt && <Ionicons name="checkmark" size={18} color={Colors.primary} />}
-                      </TouchableOpacity>
-                    ))}
+                    ].map((opt, idx, arr) => {
+                      const selectedList = lemburAlasan ? lemburAlasan.split(", ") : [];
+                      const isSelected = selectedList.includes(opt);
+                      return (
+                        <TouchableOpacity
+                          key={opt}
+                          style={{ 
+                            padding: 12, 
+                            borderBottomWidth: idx === arr.length - 1 ? 0 : 1, 
+                            borderBottomColor: Colors.borderLight,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 10
+                          }}
+                          onPress={() => {
+                            let nextList = [...selectedList];
+                            if (isSelected) {
+                              nextList = nextList.filter(item => item !== opt);
+                            } else {
+                              nextList.push(opt);
+                            }
+                            setLemburAlasan(nextList.join(", "));
+                          }}
+                        >
+                          <Ionicons 
+                            name={isSelected ? "checkbox" : "square-outline"} 
+                            size={20} 
+                            color={isSelected ? Colors.primary : Colors.textTertiary} 
+                          />
+                          <Text style={{ fontSize: 14, color: Colors.text, flex: 1 }}>{opt}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </ScrollView>
                 </View>
               )}
