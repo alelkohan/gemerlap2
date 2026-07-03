@@ -23,11 +23,11 @@ export function ScreenHeader({ title, action }: { title: string; action?: ReactN
   );
 }
 
-export function ScreenContainer({ children, title, action }: { children: ReactNode; title: string; action?: ReactNode }) {
+export function ScreenContainer({ children, title, action, noHeader }: { children: ReactNode; title: string; action?: ReactNode; noHeader?: boolean }) {
   const Colors = useColors();
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>
-      <ScreenHeader title={title} action={action} />
+      {!noHeader && <ScreenHeader title={title} action={action} />}
       {children}
     </SafeAreaView>
   );

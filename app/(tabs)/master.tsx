@@ -15,6 +15,7 @@ export default function MasterScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const hasAdminAccess = user?.role === "admin" || user?.role === "auditor";
+  const isAuditor = user?.role === "auditor";
 
   const groupedMenus = [
     {
@@ -30,7 +31,7 @@ export default function MasterScreen() {
     {
       title: "Operasional & Laporan",
       items: [
-        { icon: "wallet-outline", label: "Keuangan", sub: "Transaksi & saldo TPS", path: "/keuangan", color: Colors.accent },
+        { icon: "wallet-outline", label: "Keuangan", sub: "Transaksi & saldo TPS", path: "/keuangan", color: Colors.accent, auditorHidden: true },
         { icon: "cart-outline", label: "Penjualan Komoditas", sub: "Riwayat penjualan", path: "/master/penjualan", color: Colors.success },
         { icon: "document-outline", label: "Laporan", sub: "Cetak laporan PDF", path: "/master/laporan", color: Colors.primary, adminOnly: true },
       ]
@@ -58,7 +59,7 @@ export default function MasterScreen() {
                 {group.title}
               </Text>
               <View style={{ gap: 10 }}>
-                {group.items.map((m) => {
+                {group.items.filter((m: any) => !(isAuditor && m.auditorHidden)).map((m) => {
                   const locked = m.adminOnly && !hasAdminAccess;
                   return (
                     <TouchableOpacity

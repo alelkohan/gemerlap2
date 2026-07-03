@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { apiFetch } from "@/src/lib/api";
 import { useAuth } from "@/src/lib/auth-context";
@@ -38,7 +39,7 @@ type Trx = {
 
 type Filter = "all" | "in" | "out";
 
-export default function KeuanganScreen() {
+export default function KeuanganScreen({ asTab = false }: { asTab?: boolean }) {
   const Colors = useColors();
   const styles = useMemo(() => baseStyles(Colors), [Colors]);
   const router = useRouter();
@@ -145,8 +146,18 @@ export default function KeuanganScreen() {
   };
 
 
+  const containerProps = asTab ? { noHeader: true } : {};
+
   return (
-    <ScreenContainer title="Keuangan">
+    <ScreenContainer title="Keuangan" {...containerProps}
+      action={asTab ? undefined : undefined}
+    >
+      {asTab && (
+        <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 }}>
+          <Text style={{ fontSize: 28, fontWeight: "800", color: Colors.text }}>Keuangan</Text>
+          <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 2 }}>Transaksi & saldo TPS</Text>
+        </View>
+      )}
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={
