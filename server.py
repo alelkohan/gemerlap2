@@ -639,11 +639,18 @@ async def delete_jenis(jid: str, current=Depends(get_current_user)):
 @api_router.get('/petugas')
 async def list_petugas(current=Depends(get_current_user)):
     raw = await db.petugas.find({}, {'_id': 0}).sort('nama', 1).to_list(1000)
+    # Get all auditor user_ids so we can exclude them from petugas list
+    auditor_users = await db.users.find({'role': 'auditor'}, {'_id': 0, 'id': 1}).to_list(1000)
+    auditor_ids = {u['id'] for u in auditor_users}
     seen = set()
     result = []
     for p in raw:
-        if p.get('id') not in seen:
-            seen.add(p['id'])
+        pid = p.get('id')
+        # Exclude auditors (matched by id or user_id)
+        if pid in auditor_ids or p.get('user_id') in auditor_ids:
+            continue
+        if pid not in seen:
+            seen.add(pid)
             result.append(p)
     return result
 
@@ -1068,8 +1075,12 @@ async def delete_self_absensi(current=Depends(get_current_user)):
 async def get_unmarked_officers(tanggal: str = None, current=Depends(admin_or_auditor_required)):
     """Return list of active officers who have no attendance record for the given date."""
     date_str = tanggal or (datetime.now(timezone.utc) + timedelta(hours=7)).strftime('%Y-%m-%d')
-    # Get all active petugas
-    all_petugas = await db.petugas.find({'status': True}, {'_id': 0, 'id': 1, 'nama': 1}).to_list(1000)
+    # Exclude auditors
+    auditor_users = await db.users.find({'role': 'auditor'}, {'_id': 0, 'id': 1}).to_list(1000)
+    auditor_ids = {u['id'] for u in auditor_users}
+    # Get all active petugas (excluding auditors)
+    all_petugas_raw = await db.petugas.find({'status': True}, {'_id': 0, 'id': 1, 'nama': 1, 'user_id': 1}).to_list(1000)
+    all_petugas = [p for p in all_petugas_raw if p['id'] not in auditor_ids and p.get('user_id') not in auditor_ids]
     if not all_petugas:
         return []
     # Get petugas_ids that already have a daily record for this date
@@ -1507,11 +1518,18 @@ async def rekap_absensi(bulan: str, current=Depends(get_current_user)):
         }},
     ]
     res = await db.absensi.aggregate(pipeline).to_list(10000)
+    # Exclude auditors from rekap
+    auditor_users = await db.users.find({'role': 'auditor'}, {'_id': 0, 'id': 1}).to_list(1000)
+    auditor_ids = {u['id'] for u in auditor_users}
     # Group by petugas_id
     petugas_list = await db.petugas.find({'status': True}, {'_id': 0}).to_list(1000)
     rekap = {}
     for p in petugas_list:
-        rekap[p['id']] = {'petugas_id': p['id'], 'nama': p['nama'], 'hadir': 0, 'absen': 0, 'izin': 0, 'sakit': 0, 'total_jam': 0}
+        pid = p['id']
+        # Skip auditors
+        if pid in auditor_ids or p.get('user_id') in auditor_ids:
+            continue
+        rekap[pid] = {'petugas_id': pid, 'nama': p['nama'], 'hadir': 0, 'absen': 0, 'izin': 0, 'sakit': 0, 'total_jam': 0}
     for r in res:
         pid = r['_id']['petugas_id']
         st = r['_id']['status']
