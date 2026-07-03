@@ -370,9 +370,11 @@ export default function RekapAbsensiScreen() {
           rekap.map((r) => (
             <Card key={r.petugas_id} style={{ marginBottom: 10 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <TouchableOpacity onPress={() => handleOpenDetail({ id: r.petugas_id, nama: r.nama })} activeOpacity={0.6} style={{ flex: 1, marginRight: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.text }}>{r.nama}</Text>
-                  <Ionicons name="chevron-forward" size={14} color={Colors.textTertiary} />
+                <TouchableOpacity onPress={() => handleOpenDetail({ id: r.petugas_id, nama: r.nama })} activeOpacity={0.6} style={{ flex: 1, marginRight: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Text style={{ fontSize: 15, fontWeight: "700", color: Colors.text }}>{r.nama}</Text>
+                    <Ionicons name="chevron-forward" size={14} color={Colors.textTertiary} />
+                  </View>
                 </TouchableOpacity>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   {r.gaji_status === "DIBAYAR" && (
