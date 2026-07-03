@@ -1681,6 +1681,22 @@ async def create_lembur(req: LemburRequestCreate, current=Depends(get_current_us
     }
     await db.lembur.insert_one(lembur_doc)
     lembur_doc.pop('_id', None)
+
+    # Send push notification to all admins
+    try:
+        admins = await db.users.find({'role': 'admin', 'push_token': {'$exists': True, '$ne': None}}).to_list(100)
+        for admin in admins:
+            token = admin.get('push_token')
+            if token:
+                await send_push_notification(
+                    expo_push_token=token,
+                    title="📋 Pengajuan Lembur Baru",
+                    body=f"{petugas['nama']} mengajukan lembur {req.durasi_jam} jam — {req.alasan}",
+                    data={"type": "lembur", "id": lembur_doc['id']}
+                )
+    except Exception as e:
+        logging.error(f"Failed to notify admins about new lembur: {e}")
+
     return {'message': 'Pengajuan lembur berhasil dikirim', 'data': lembur_doc}
 
 @api_router.get('/lembur/pending')
