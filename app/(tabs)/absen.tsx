@@ -488,11 +488,11 @@ export default function AbsenScreen() {
 
   const handleSubmitLembur = async () => {
     if (!lemburJam || isNaN(Number(lemburJam)) || Number(lemburJam) <= 0) {
-      Alert.alert("Error", "Mohon isi durasi lembur dengan angka yang valid");
+      showResult("error", "Error", "Mohon isi durasi lembur dengan angka yang valid");
       return;
     }
     if (!lemburAlasan.trim()) {
-      Alert.alert("Error", "Mohon isi alasan lembur");
+      showResult("error", "Error", "Mohon isi alasan lembur");
       return;
     }
     setLoadingLembur(true);
@@ -510,7 +510,7 @@ export default function AbsenScreen() {
       showResult("success", "Berhasil", "Pengajuan lembur telah dikirim dan menunggu persetujuan.");
       loadLembur(selectedDate);
     } catch (e: any) {
-      Alert.alert("Gagal", e.message || "Gagal mengirim pengajuan");
+      showResult("error", "Gagal", e.message || "Gagal mengirim pengajuan");
     } finally {
       setLoadingLembur(false);
     }
