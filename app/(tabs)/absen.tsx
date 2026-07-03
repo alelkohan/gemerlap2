@@ -1050,7 +1050,7 @@ export default function AbsenScreen() {
                 ) : (
                   <>
                     <Ionicons name="send" size={18} color="#fff" />
-                    <Text style={[sharedModal.btnText, { color: "#fff" }]}>Kirim Pengajuan</Text>
+                    <Text style={[sharedModal.btnText, { color: "#fff" }]}>Kirim</Text>
                   </>
                 )}
               </TouchableOpacity>

@@ -17,6 +17,8 @@ export default function MasterScreen() {
   const hasAdminAccess = user?.role === "admin" || user?.role === "auditor";
   const isAuditor = user?.role === "auditor";
 
+  const isPetugas = user?.role === "petugas";
+
   const groupedMenus = [
     {
       title: "Kepegawaian",
@@ -24,7 +26,7 @@ export default function MasterScreen() {
         { icon: "people-outline", label: "Petugas", sub: "Data petugas TPS", path: "/master/petugas", color: Colors.info },
         { icon: "time-outline", label: "Persetujuan Lembur", sub: "Setujui pengajuan lembur", path: "/master/persetujuan-lembur", color: Colors.warning, adminOnly: true },
         { icon: "wallet-outline", label: "Pinjaman / Kasbon", sub: "Kelola kasbon petugas", path: "/master/kasbon", color: Colors.error },
-        { icon: "stats-chart-outline", label: "Rekap Absensi & Gaji", sub: "Kehadiran dan cetak slip gaji", path: "/master/rekap-absensi", color: Colors.warning, adminOnly: true },
+        { icon: "stats-chart-outline", label: "Rekap Absensi & Gaji", sub: "Kehadiran dan cetak slip gaji", path: "/master/rekap-absensi", color: Colors.warning, adminOnly: true, petugasAllowed: true },
         { icon: "shield-outline", label: "Kelola Akun", sub: "Akun & role pengguna", path: "/master/akun", color: Colors.error, adminOnly: true },
       ]
     },
@@ -46,6 +48,28 @@ export default function MasterScreen() {
     }
   ];
 
+  // Flat menu structure for petugas
+  const petugasMenuPaths = [
+    "/master/petugas",
+    "/master/rekap-absensi",
+    "/keuangan",
+    "/master/penjualan",
+    "/master/unit",
+    "/master/jenis-sampah"
+  ];
+
+  const flatPetugasMenu = useMemo(() => {
+    const items: any[] = [];
+    groupedMenus.forEach(g => {
+      g.items.forEach(item => {
+        if (petugasMenuPaths.includes(item.path)) {
+          items.push(item);
+        }
+      });
+    });
+    return items;
+  }, [Colors]);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
@@ -53,49 +77,77 @@ export default function MasterScreen() {
         <Text style={styles.subtitle}>Pengaturan & laporan</Text>
 
         <View style={{ marginTop: 16, gap: 24 }}>
-          {groupedMenus.map((group, groupIdx) => (
-            <View key={groupIdx}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.textSecondary, marginBottom: 12, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                {group.title}
-              </Text>
-              <View style={{ gap: 10 }}>
-                {group.items.filter((m: any) => !(isAuditor && m.auditorHidden)).map((m) => {
-                  const locked = m.adminOnly && !hasAdminAccess;
-                  return (
-                    <TouchableOpacity
-                      key={m.path}
-                      disabled={locked}
-                      activeOpacity={0.85}
-                      onPress={() => router.push(m.path as any)}
-                      testID={`master-${m.label.toLowerCase().replace(/\s+/g, "-")}`}
-                    >
-                      <Card style={{ opacity: locked ? 0.45 : 1 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1 }}>
-                            <View style={[styles.iconBox, { backgroundColor: m.color + "20" }]}>
-                              <Ionicons name={m.icon as any} size={24} color={m.color} />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                                <Text style={{ fontSize: 15, fontWeight: "700", color: Colors.text }}>{m.label}</Text>
-                                {locked && (
-                                  <View style={styles.adminBadge}>
-                                    <Text style={{ fontSize: 9, fontWeight: "700", color: Colors.textSecondary }}>ADMIN</Text>
-                                  </View>
-                                )}
-                              </View>
-                              <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>{m.sub}</Text>
-                            </View>
-                          </View>
-                          <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+          {isPetugas ? (
+            <View style={{ gap: 10 }}>
+              {flatPetugasMenu.map((m) => (
+                <TouchableOpacity
+                  key={m.path}
+                  activeOpacity={0.85}
+                  onPress={() => router.push(m.path as any)}
+                  testID={`master-${m.label.toLowerCase().replace(/\s+/g, "-")}`}
+                >
+                  <Card>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1 }}>
+                        <View style={[styles.iconBox, { backgroundColor: m.color + "20" }]}>
+                          <Ionicons name={m.icon as any} size={24} color={m.color} />
                         </View>
-                      </Card>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 15, fontWeight: "700", color: Colors.text }}>{m.label}</Text>
+                          <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>{m.sub}</Text>
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+                    </View>
+                  </Card>
+                </TouchableOpacity>
+              ))}
             </View>
-          ))}
+          ) : (
+            groupedMenus.map((group, groupIdx) => (
+              <View key={groupIdx}>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.textSecondary, marginBottom: 12, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  {group.title}
+                </Text>
+                <View style={{ gap: 10 }}>
+                  {group.items.filter((m: any) => !(isAuditor && m.auditorHidden)).map((m) => {
+                    const locked = m.adminOnly && !hasAdminAccess && !m.petugasAllowed;
+                    return (
+                      <TouchableOpacity
+                        key={m.path}
+                        disabled={locked}
+                        activeOpacity={0.85}
+                        onPress={() => router.push(m.path as any)}
+                        testID={`master-${m.label.toLowerCase().replace(/\s+/g, "-")}`}
+                      >
+                        <Card style={{ opacity: locked ? 0.45 : 1 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1 }}>
+                              <View style={[styles.iconBox, { backgroundColor: m.color + "20" }]}>
+                                <Ionicons name={m.icon as any} size={24} color={m.color} />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                                  <Text style={{ fontSize: 15, fontWeight: "700", color: Colors.text }}>{m.label}</Text>
+                                  {locked && (
+                                    <View style={styles.adminBadge}>
+                                      <Text style={{ fontSize: 9, fontWeight: "700", color: Colors.textSecondary }}>ADMIN</Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>{m.sub}</Text>
+                              </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+                          </View>
+                        </Card>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
