@@ -13,7 +13,7 @@ import {
   Platform,
   Switch,
 } from "react-native";
-import Animated, { LinearTransition, FadeIn, FadeOut, SpringConfig } from "react-native-reanimated";
+// import Animated, { LinearTransition, FadeIn, FadeOut, SpringConfig } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
