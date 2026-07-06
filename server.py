@@ -1966,8 +1966,9 @@ async def laporan_neraca_massa(start: str, end: str, current=Depends(admin_or_au
     for k in sorted(monthly.keys()):
         d = monthly[k]
         masuk = d['sampah_masuk']
-        residu = d['residu']
-        rf = ((masuk - residu) / masuk * 100) if masuk > 0 else 0
+        dikomposkan = d['dikomposkan']
+        dijual = d['dijual']
+        rf = ((dikomposkan + dijual) / masuk * 100) if masuk > 0 else 0
         d['recovery_factor'] = round(rf, 2)
         result.append(d)
         
