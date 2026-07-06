@@ -461,37 +461,39 @@ export default function AsetKewajibanScreen() {
       <Modal transparent animationType="fade" visible={showAsetModal} onRequestClose={() => setShowAsetModal(false)} statusBarTranslucent>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
           <Pressable style={styles.modalOverlay} onPress={() => setShowAsetModal(false)}>
-            <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
-              <Text style={[styles.modalTitle, { color: Colors.text }]}>Tambah Aset Tetap</Text>
-              <Text style={styles.modalBody}>
-                Masukkan detail aset tetap baru untuk diinventarisasi.
-              </Text>
+            <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
+                <Text style={[styles.modalTitle, { color: Colors.text }]}>Tambah Aset Tetap</Text>
+                <Text style={styles.modalBody}>
+                  Masukkan detail aset tetap baru untuk diinventarisasi.
+                </Text>
 
-              <View style={{ width: "100%", gap: 12 }}>
-                <Input label="Nama Aset" value={namaAset} onChangeText={setNamaAset} placeholder="Misal: Mesin Pencacah Sampah" />
-                <DatePickerField label="Tanggal Pembelian" value={tglAset} onChange={setTglAset} />
-                <Input label="Harga Perolehan (Rp)" value={hargaAset} onChangeText={(text) => setHargaAset(formatRupiahInput(text))} keyboardType="numeric" placeholder="Rp 0" />
-                <Input label="Keterangan (Opsional)" value={ketAset} onChangeText={setKetAset} multiline placeholder="Beli baru / bekas..." />
-              </View>
+                <View style={{ width: "100%", gap: 12 }}>
+                  <Input label="Nama Aset" value={namaAset} onChangeText={setNamaAset} placeholder="Misal: Mesin Pencacah Sampah" />
+                  <DatePickerField label="Tanggal Pembelian" value={tglAset} onChange={setTglAset} />
+                  <Input label="Harga Perolehan (Rp)" value={hargaAset} onChangeText={(text) => setHargaAset(formatRupiahInput(text))} keyboardType="numeric" placeholder="Rp 0" />
+                  <Input label="Keterangan (Opsional)" value={ketAset} onChangeText={setKetAset} multiline placeholder="Beli baru / bekas..." />
+                </View>
 
-              <View style={styles.modalBtnRow}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
-                  onPress={() => setShowAsetModal(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
-                  onPress={handleSaveAset}
-                  activeOpacity={0.8}
-                  disabled={loading}
-                >
-                  <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Simpan</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
+                <View style={styles.modalBtnRow}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
+                    onPress={() => setShowAsetModal(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
+                    onPress={handleSaveAset}
+                    activeOpacity={0.8}
+                    disabled={loading}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Simpan</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </ScrollView>
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
@@ -500,37 +502,39 @@ export default function AsetKewajibanScreen() {
       <Modal transparent animationType="fade" visible={showHutangModal} onRequestClose={() => setShowHutangModal(false)} statusBarTranslucent>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
           <Pressable style={styles.modalOverlay} onPress={() => setShowHutangModal(false)}>
-            <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
-              <Text style={[styles.modalTitle, { color: Colors.text }]}>Catat Hutang Baru</Text>
-              <Text style={styles.modalBody}>
-                Masukkan detail hutang operasional baru dari pihak luar.
-              </Text>
+            <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
+                <Text style={[styles.modalTitle, { color: Colors.text }]}>Catat Hutang Baru</Text>
+                <Text style={styles.modalBody}>
+                  Masukkan detail hutang operasional baru dari pihak luar.
+                </Text>
 
-              <View style={{ width: "100%", gap: 12 }}>
-                <Input label="Nama Kreditor (Pemberi Pinjaman)" value={namaKreditor} onChangeText={setNamaKreditor} placeholder="Nama Instansi / Perorangan" />
-                <DatePickerField label="Tanggal Pinjam" value={tglHutang} onChange={setTglHutang} />
-                <Input label="Jumlah Hutang (Rp)" value={jumlahHutang} onChangeText={(text) => setJumlahHutang(formatRupiahInput(text))} keyboardType="numeric" placeholder="Rp 0" />
-                <Input label="Keterangan (Opsional)" value={ketHutang} onChangeText={setKetHutang} multiline placeholder="Hutang operasional..." />
-              </View>
+                <View style={{ width: "100%", gap: 12 }}>
+                  <Input label="Nama Kreditor (Pemberi Pinjaman)" value={namaKreditor} onChangeText={setNamaKreditor} placeholder="Nama Instansi / Perorangan" />
+                  <DatePickerField label="Tanggal Pinjam" value={tglHutang} onChange={setTglHutang} />
+                  <Input label="Jumlah Hutang (Rp)" value={jumlahHutang} onChangeText={(text) => setJumlahHutang(formatRupiahInput(text))} keyboardType="numeric" placeholder="Rp 0" />
+                  <Input label="Keterangan (Opsional)" value={ketHutang} onChangeText={setKetHutang} multiline placeholder="Hutang operasional..." />
+                </View>
 
-              <View style={styles.modalBtnRow}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
-                  onPress={() => setShowHutangModal(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
-                  onPress={handleSaveHutang}
-                  activeOpacity={0.8}
-                  disabled={loading}
-                >
-                  <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Simpan</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
+                <View style={styles.modalBtnRow}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
+                    onPress={() => setShowHutangModal(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
+                    onPress={handleSaveHutang}
+                    activeOpacity={0.8}
+                    disabled={loading}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Simpan</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </ScrollView>
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
@@ -539,37 +543,39 @@ export default function AsetKewajibanScreen() {
       <Modal transparent animationType="fade" visible={showPiutangModal} onRequestClose={() => setShowPiutangModal(false)} statusBarTranslucent>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
           <Pressable style={styles.modalOverlay} onPress={() => setShowPiutangModal(false)}>
-            <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
-              <Text style={[styles.modalTitle, { color: Colors.text }]}>Catat Piutang Baru</Text>
-              <Text style={styles.modalBody}>
-                Masukkan detail piutang atau tagihan kepada pihak luar.
-              </Text>
+            <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
+                <Text style={[styles.modalTitle, { color: Colors.text }]}>Catat Piutang Baru</Text>
+                <Text style={styles.modalBody}>
+                  Masukkan detail piutang atau tagihan kepada pihak luar.
+                </Text>
 
-              <View style={{ width: "100%", gap: 12 }}>
-                <Input label="Nama Debitur (Penerima Pinjaman)" value={namaDebitur} onChangeText={setNamaDebitur} placeholder="Nama Pihak Luar / Pembeli" />
-                <DatePickerField label="Tanggal Piutang" value={tglPiutang} onChange={setTglPiutang} />
-                <Input label="Jumlah Piutang (Rp)" value={jumlahPiutang} onChangeText={(text) => setJumlahPiutang(formatRupiahInput(text))} keyboardType="numeric" placeholder="Rp 0" />
-                <Input label="Keterangan (Opsional)" value={ketPiutang} onChangeText={setKetPiutang} multiline placeholder="Piutang komoditas..." />
-              </View>
+                <View style={{ width: "100%", gap: 12 }}>
+                  <Input label="Nama Debitur (Penerima Pinjaman)" value={namaDebitur} onChangeText={setNamaDebitur} placeholder="Nama Pihak Luar / Pembeli" />
+                  <DatePickerField label="Tanggal Piutang" value={tglPiutang} onChange={setTglPiutang} />
+                  <Input label="Jumlah Piutang (Rp)" value={jumlahPiutang} onChangeText={(text) => setJumlahPiutang(formatRupiahInput(text))} keyboardType="numeric" placeholder="Rp 0" />
+                  <Input label="Keterangan (Opsional)" value={ketPiutang} onChangeText={setKetPiutang} multiline placeholder="Piutang komoditas..." />
+                </View>
 
-              <View style={styles.modalBtnRow}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
-                  onPress={() => setShowPiutangModal(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
-                  onPress={handleSavePiutang}
-                  activeOpacity={0.8}
-                  disabled={loading}
-                >
-                  <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Simpan</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
+                <View style={styles.modalBtnRow}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
+                    onPress={() => setShowPiutangModal(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
+                    onPress={handleSavePiutang}
+                    activeOpacity={0.8}
+                    disabled={loading}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Simpan</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </ScrollView>
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
@@ -578,40 +584,42 @@ export default function AsetKewajibanScreen() {
       <Modal transparent animationType="fade" visible={showBayarModal} onRequestClose={() => setShowBayarModal(false)} statusBarTranslucent>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
           <Pressable style={styles.modalOverlay} onPress={() => setShowBayarModal(false)}>
-            <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
-              <Text style={[styles.modalTitle, { color: Colors.text }]}>
-                {activeTab === "hutang" ? "Bayar Cicilan" : "Terima Pembayaran"}
-              </Text>
-              <Text style={styles.modalBody}>
-                {activeTab === "hutang"
-                  ? "Catat pembayaran cicilan hutang Anda."
-                  : "Catat penerimaan pembayaran piutang dari debitur."}
-              </Text>
+            <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
+                <Text style={[styles.modalTitle, { color: Colors.text }]}>
+                  {activeTab === "hutang" ? "Bayar Cicilan" : "Terima Pembayaran"}
+                </Text>
+                <Text style={styles.modalBody}>
+                  {activeTab === "hutang"
+                    ? "Catat pembayaran cicilan hutang Anda."
+                    : "Catat penerimaan pembayaran piutang dari debitur."}
+                </Text>
 
-              <View style={{ width: "100%", gap: 12 }}>
-                <Input label="Nominal (Rp)" value={nominalBayar} onChangeText={(text) => setNominalBayar(formatRupiahInput(text))} keyboardType="numeric" placeholder="Rp 0" />
-                <DatePickerField label="Tanggal Transaksi" value={tglBayar} onChange={setTglBayar} />
-                <Input label="Keterangan (Opsional)" value={ketBayar} onChangeText={setKetBayar} multiline placeholder="Cicilan ke-..." />
-              </View>
+                <View style={{ width: "100%", gap: 12 }}>
+                  <Input label="Nominal (Rp)" value={nominalBayar} onChangeText={(text) => setNominalBayar(formatRupiahInput(text))} keyboardType="numeric" placeholder="Rp 0" />
+                  <DatePickerField label="Tanggal Transaksi" value={tglBayar} onChange={setTglBayar} />
+                  <Input label="Keterangan (Opsional)" value={ketBayar} onChangeText={setKetBayar} multiline placeholder="Cicilan ke-..." />
+                </View>
 
-              <View style={styles.modalBtnRow}>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
-                  onPress={() => setShowBayarModal(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
-                  onPress={handleSaveBayar}
-                  activeOpacity={0.8}
-                  disabled={loading}
-                >
-                  <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Proses</Text>
-                </TouchableOpacity>
-              </View>
-            </Pressable>
+                <View style={styles.modalBtnRow}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
+                    onPress={() => setShowBayarModal(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
+                    onPress={handleSaveBayar}
+                    activeOpacity={0.8}
+                    disabled={loading}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Proses</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </ScrollView>
           </Pressable>
         </KeyboardAvoidingView>
       </Modal>
@@ -778,10 +786,15 @@ const baseStyles = (Colors: any) => StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "rgba(0,0,0,0.55)"
+  },
+  modalScroll: {
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 28
+    width: "100%",
+    paddingHorizontal: 28,
+    paddingVertical: 40
   },
   modalSheet: {
     width: "100%",
