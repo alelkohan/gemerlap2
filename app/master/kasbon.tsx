@@ -184,12 +184,44 @@ export default function KasbonScreen() {
 
                   <View style={{ width: "100%", gap: 12 }}>
                     <Text style={styles.label}>Pilih Petugas</Text>
-                    <TouchableOpacity onPress={() => setShowPetugasModal(true)} style={[styles.pickerBtn, { borderColor: Colors.borderLight, backgroundColor: Colors.surface }]}>
+                    <TouchableOpacity onPress={() => setShowPetugasModal(!showPetugasModal)} style={[styles.pickerBtn, { borderColor: Colors.borderLight, backgroundColor: Colors.surface, marginBottom: showPetugasModal ? 4 : 16 }]}>
                       <Text style={{ color: petugasId ? Colors.text : Colors.textSecondary }}>
                         {petugasList.find(p => p.id === petugasId)?.nama || "-- Pilih Petugas --"}
                       </Text>
-                      <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+                      <Ionicons name={showPetugasModal ? "chevron-up" : "chevron-down"} size={16} color={Colors.textSecondary} />
                     </TouchableOpacity>
+
+                    {showPetugasModal && (
+                      <View style={{ backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 12, marginBottom: 16, maxHeight: 180, overflow: "hidden" }}>
+                        <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true}>
+                          {petugasList.map((p, idx, arr) => {
+                            const isSelected = p.id === petugasId;
+                            return (
+                              <TouchableOpacity
+                                key={p.id}
+                                style={{
+                                  paddingHorizontal: 16,
+                                  paddingVertical: 12,
+                                  borderBottomWidth: idx === arr.length - 1 ? 0 : 1,
+                                  borderBottomColor: Colors.borderLight,
+                                  backgroundColor: isSelected ? Colors.primary + "12" : Colors.surface,
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  justifyContent: "space-between"
+                                }}
+                                onPress={() => {
+                                  setPetugasId(p.id);
+                                  setShowPetugasModal(false);
+                                }}
+                              >
+                                <Text style={{ fontSize: 14, color: Colors.text, fontWeight: isSelected ? "700" : "400" }}>{p.nama}</Text>
+                                {isSelected && <Ionicons name="checkmark" size={16} color={Colors.primary} />}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      </View>
+                    )}
 
                     <Input
                       label="Nominal Kasbon"
@@ -231,15 +263,6 @@ export default function KasbonScreen() {
       )}
 
       {isAdmin && <FAB onPress={openNew} icon="add" />}
-
-      <PickerModal
-        visible={showPetugasModal}
-        title="Pilih Petugas"
-        items={petugasList}
-        selectedId={petugasId}
-        onSelect={(p) => setPetugasId(p.id)}
-        onClose={() => setShowPetugasModal(false)}
-      />
     </ScreenContainer>
   );
 }
