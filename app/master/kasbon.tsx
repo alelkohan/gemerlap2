@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { ScrollView, View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { ScrollView, View, Text, StyleSheet, Alert, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Modal, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 
@@ -170,56 +170,63 @@ export default function KasbonScreen() {
         onCancel={() => setDeleteId(null)}
       />
 
-      {/* ABSOLUTE POSITIONED FORM (Looks like a Modal, works with PickerModal) */}
-      {showForm && (
-        <View style={StyleSheet.absoluteFillObject}>
-          <TouchableOpacity 
-            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }} 
-            activeOpacity={1} 
-            onPress={() => setShowForm(false)} 
-          />
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === "ios" ? "padding" : undefined} 
-            style={{ position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: Colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}
-          >
-            <View style={{ padding: 24 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <Text style={{ fontSize: 18, fontWeight: "800", color: Colors.text }}>Tambah Kasbon Baru</Text>
-                <TouchableOpacity onPress={() => setShowForm(false)} style={{ padding: 8 }}>
-                  <Ionicons name="close" size={24} color={Colors.textTertiary} />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.label}>Pilih Petugas</Text>
-              <TouchableOpacity onPress={() => setShowPetugasModal(true)} style={[styles.pickerBtn, { borderColor: Colors.borderLight, backgroundColor: Colors.surface }]}>
-                <Text style={{ color: petugasId ? Colors.text : Colors.textSecondary }}>
-                  {petugasList.find(p => p.id === petugasId)?.nama || "-- Pilih Petugas --"}
+      {/* Form Modal */}
+      <Modal transparent animationType="fade" visible={showForm} onRequestClose={() => setShowForm(false)} statusBarTranslucent>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowForm(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, width: "100%" }}>
+            <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
+                <Text style={[styles.modalTitle, { color: Colors.text }]}>Tambah Kasbon Baru</Text>
+                <Text style={styles.modalBody}>
+                  Masukkan detail pinjaman kasbon untuk petugas.
                 </Text>
-                <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
-              </TouchableOpacity>
 
-              <Input
-                label="Nominal Kasbon"
-                placeholder="0"
-                keyboardType="number-pad"
-                value={nominal}
-                onChangeText={(val) => setNominal(formatRupiahInput(val))}
-                style={{ marginBottom: 12 }}
-              />
+                <View style={{ width: "100%", gap: 12 }}>
+                  <Text style={styles.label}>Pilih Petugas</Text>
+                  <TouchableOpacity onPress={() => setShowPetugasModal(true)} style={[styles.pickerBtn, { borderColor: Colors.borderLight, backgroundColor: Colors.surface }]}>
+                    <Text style={{ color: petugasId ? Colors.text : Colors.textSecondary }}>
+                      {petugasList.find(p => p.id === petugasId)?.nama || "-- Pilih Petugas --"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
+                  </TouchableOpacity>
 
-              <Input
-                label="Keterangan (Opsional)"
-                placeholder="Misal: Biaya sekolah anak"
-                value={keterangan}
-                onChangeText={setKeterangan}
-                style={{ marginBottom: 24 }}
-              />
+                  <Input
+                    label="Nominal Kasbon"
+                    placeholder="0"
+                    keyboardType="number-pad"
+                    value={nominal}
+                    onChangeText={(val) => setNominal(formatRupiahInput(val))}
+                  />
 
-              <Button title="Simpan Kasbon" onPress={handleSave} />
-            </View>
+                  <Input
+                    label="Keterangan (Opsional)"
+                    placeholder="Misal: Biaya sekolah anak"
+                    value={keterangan}
+                    onChangeText={setKeterangan}
+                  />
+                </View>
+
+                <View style={styles.modalBtnRow}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
+                    onPress={() => setShowForm(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
+                    onPress={handleSave}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Simpan</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </ScrollView>
           </KeyboardAvoidingView>
-        </View>
-      )}
+        </Pressable>
+      </Modal>
 
       {isAdmin && !showForm && <FAB onPress={openNew} icon="add" />}
 
@@ -247,4 +254,62 @@ const baseStyles = (Colors: any) => StyleSheet.create({
   label: { fontSize: 13, fontWeight: "600", color: Colors.textSecondary, marginBottom: 8 },
   pickerBtn: { borderWidth: 1, borderRadius: 12, marginBottom: 16, padding: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   navBtn: { padding: 8, borderWidth: 1, borderRadius: 10 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)"
+  },
+  modalScroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    paddingHorizontal: 28,
+    paddingVertical: 40
+  },
+  modalSheet: {
+    width: "100%",
+    backgroundColor: Colors.surface,
+    padding: 28,
+    borderRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 16,
+    alignItems: "center"
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.text,
+    marginBottom: 8,
+    textAlign: "center",
+    letterSpacing: -0.3
+  },
+  modalBody: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24
+  },
+  modalBtnRow: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+    marginTop: 16
+  },
+  modalBtn: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 14
+  },
+  modalBtnText: {
+    fontSize: 15,
+    fontWeight: "800"
+  },
 });
