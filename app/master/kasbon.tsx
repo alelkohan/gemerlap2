@@ -171,96 +171,94 @@ export default function KasbonScreen() {
       />
 
       {/* Form Modal */}
-      {showForm && (
-        <View style={[StyleSheet.absoluteFillObject, { zIndex: 1000 }]}>
-          <Pressable style={styles.modalOverlay} onPress={() => setShowForm(false)}>
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, width: "100%" }}>
-              <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
-                  <Text style={[styles.modalTitle, { color: Colors.text }]}>Tambah Kasbon Baru</Text>
-                  <Text style={styles.modalBody}>
-                    Masukkan detail pinjaman kasbon untuk petugas.
-                  </Text>
+      <Modal transparent animationType="fade" visible={showForm} onRequestClose={() => setShowForm(false)} statusBarTranslucent>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowForm(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, width: "100%" }}>
+            <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
+                <Text style={[styles.modalTitle, { color: Colors.text }]}>Tambah Kasbon Baru</Text>
+                <Text style={styles.modalBody}>
+                  Masukkan detail pinjaman kasbon untuk petugas.
+                </Text>
 
-                  <View style={{ width: "100%", gap: 12 }}>
-                    <Text style={styles.label}>Pilih Petugas</Text>
-                    <TouchableOpacity onPress={() => setShowPetugasModal(!showPetugasModal)} style={[styles.pickerBtn, { borderColor: Colors.borderLight, backgroundColor: Colors.surface, marginBottom: showPetugasModal ? 4 : 16 }]}>
-                      <Text style={{ color: petugasId ? Colors.text : Colors.textSecondary }}>
-                        {petugasList.find(p => p.id === petugasId)?.nama || "-- Pilih Petugas --"}
-                      </Text>
-                      <Ionicons name={showPetugasModal ? "chevron-up" : "chevron-down"} size={16} color={Colors.textSecondary} />
-                    </TouchableOpacity>
+                <View style={{ width: "100%", gap: 12 }}>
+                  <Text style={styles.label}>Pilih Petugas</Text>
+                  <TouchableOpacity onPress={() => setShowPetugasModal(!showPetugasModal)} style={[styles.pickerBtn, { borderColor: Colors.borderLight, backgroundColor: Colors.surface, marginBottom: showPetugasModal ? 4 : 16 }]}>
+                    <Text style={{ color: petugasId ? Colors.text : Colors.textSecondary }}>
+                      {petugasList.find(p => p.id === petugasId)?.nama || "-- Pilih Petugas --"}
+                    </Text>
+                    <Ionicons name={showPetugasModal ? "chevron-up" : "chevron-down"} size={16} color={Colors.textSecondary} />
+                  </TouchableOpacity>
 
-                    {showPetugasModal && (
-                      <View style={{ backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 12, marginBottom: 16, maxHeight: 180, overflow: "hidden" }}>
-                        <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true}>
-                          {petugasList.map((p, idx, arr) => {
-                            const isSelected = p.id === petugasId;
-                            return (
-                              <TouchableOpacity
-                                key={p.id}
-                                style={{
-                                  paddingHorizontal: 16,
-                                  paddingVertical: 12,
-                                  borderBottomWidth: idx === arr.length - 1 ? 0 : 1,
-                                  borderBottomColor: Colors.borderLight,
-                                  backgroundColor: isSelected ? Colors.primary + "12" : Colors.surface,
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                  justifyContent: "space-between"
-                                }}
-                                onPress={() => {
-                                  setPetugasId(p.id);
-                                  setShowPetugasModal(false);
-                                }}
-                              >
-                                <Text style={{ fontSize: 14, color: Colors.text, fontWeight: isSelected ? "700" : "400" }}>{p.nama}</Text>
-                                {isSelected && <Ionicons name="checkmark" size={16} color={Colors.primary} />}
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </ScrollView>
-                      </View>
-                    )}
+                  {showPetugasModal && (
+                    <View style={{ backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 12, marginBottom: 16, maxHeight: 180, overflow: "hidden" }}>
+                      <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true}>
+                        {petugasList.map((p, idx, arr) => {
+                          const isSelected = p.id === petugasId;
+                          return (
+                            <TouchableOpacity
+                              key={p.id}
+                              style={{
+                                paddingHorizontal: 16,
+                                paddingVertical: 12,
+                                borderBottomWidth: idx === arr.length - 1 ? 0 : 1,
+                                borderBottomColor: Colors.borderLight,
+                                backgroundColor: isSelected ? Colors.primary + "12" : Colors.surface,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                justifyContent: "space-between"
+                              }}
+                              onPress={() => {
+                                setPetugasId(p.id);
+                                setShowPetugasModal(false);
+                              }}
+                            >
+                              <Text style={{ fontSize: 14, color: Colors.text, fontWeight: isSelected ? "700" : "400" }}>{p.nama}</Text>
+                              {isSelected && <Ionicons name="checkmark" size={16} color={Colors.primary} />}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  )}
 
-                    <Input
-                      label="Nominal Kasbon"
-                      placeholder="0"
-                      keyboardType="number-pad"
-                      value={nominal}
-                      onChangeText={(val) => setNominal(formatRupiahInput(val))}
-                    />
+                  <Input
+                    label="Nominal Kasbon"
+                    placeholder="0"
+                    keyboardType="number-pad"
+                    value={nominal}
+                    onChangeText={(val) => setNominal(formatRupiahInput(val))}
+                  />
 
-                    <Input
-                      label="Keterangan (Opsional)"
-                      placeholder="Misal: Biaya sekolah anak"
-                      value={keterangan}
-                      onChangeText={setKeterangan}
-                    />
-                  </View>
+                  <Input
+                    label="Keterangan (Opsional)"
+                    placeholder="Misal: Biaya sekolah anak"
+                    value={keterangan}
+                    onChangeText={setKeterangan}
+                  />
+                </View>
 
-                  <View style={styles.modalBtnRow}>
-                    <TouchableOpacity
-                      style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
-                      onPress={() => setShowForm(false)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
-                      onPress={handleSave}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Simpan</Text>
-                    </TouchableOpacity>
-                  </View>
-                </Pressable>
-              </ScrollView>
-            </KeyboardAvoidingView>
-          </Pressable>
-        </View>
-      )}
+                <View style={styles.modalBtnRow}>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
+                    onPress={() => setShowForm(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
+                    onPress={handleSave}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Simpan</Text>
+                  </TouchableOpacity>
+                </View>
+              </Pressable>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
 
       {isAdmin && <FAB onPress={openNew} icon="add" />}
     </ScreenContainer>
