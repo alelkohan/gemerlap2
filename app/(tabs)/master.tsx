@@ -34,6 +34,7 @@ export default function MasterScreen() {
       title: "Operasional & Laporan",
       items: [
         { icon: "wallet-outline", label: "Keuangan", sub: "Transaksi & saldo TPS", path: "/keuangan", color: Colors.accent, auditorHidden: true },
+        { icon: "business-outline", label: "Aset & Kewajiban", sub: "Aset, hutang & piutang TPS", path: "/master/aset-kewajiban", color: Colors.info },
         { icon: "cart-outline", label: "Penjualan Komoditas", sub: "Riwayat penjualan", path: "/master/penjualan", color: Colors.success },
         { icon: "document-outline", label: "Laporan", sub: "Cetak laporan PDF", path: "/master/laporan", color: Colors.primary, adminOnly: true },
       ]

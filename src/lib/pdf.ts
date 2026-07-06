@@ -499,7 +499,7 @@ export async function generateLaporanNeracaMassaPdf(items: any[], judul: string,
     
     <div style="background:#f0fdf4; border: 1px solid #1a7a4a; border-radius: 8px; padding: 12px; margin-bottom: 20px;">
       <div style="font-size:12px; font-weight:bold; color:#1a7a4a; margin-bottom: 4px;">Rumus Recovery Factor:</div>
-      <div style="font-size:12px; font-family:monospace; color:#374151;">((Sampah Masuk - Residu) / Sampah Masuk) x 100%</div>
+      <div style="font-size:12px; font-family:monospace; color:#374151;">(Recycle (Kompos) + Reuse (Komoditas)) / Sampah Masuk x 100%</div>
     </div>
 
     <table>
@@ -532,3 +532,90 @@ export async function generateLaporanNeracaMassaPdf(items: any[], judul: string,
   const safeJudul = judul.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").toLowerCase();
   await printPdf(html, `Laporan-Neraca-Massa-${safeJudul}.pdf`);
 }
+
+export async function generateLaporanNeracaSkontroPdf(data: any, bulanLabelStr: string, userName: string) {
+  const html = `
+    ${HEADER_HTML}
+    <h1 class="title" style="margin-bottom:2px;">Laporan Neraca Keuangan (Skontro)</h1>
+    <div style="font-size:12px;color:#4b5563;margin-bottom:20px;">Periode Bulan: ${bulanLabelStr}</div>
+    
+    <div style="display:flex; gap:24px; margin-top:20px;">
+      <!-- SISI AKTIVA (KIRI) -->
+      <div style="flex:1; border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; background: #fff;">
+        <h3 style="margin-top:0; border-bottom:2px solid #1a7a4a; padding-bottom:6px; color:#1a7a4a;">AKTIVA (ASET)</h3>
+        
+        <h4 style="margin:10px 0 6px; font-size:13px; color:#4b5563;">Aktiva Lancar</h4>
+        <div class="row">
+          <span class="label" style="padding-left:10px;">Kas / Bank</span>
+          <span class="value">${rupiah(data.kas)}</span>
+        </div>
+        <div class="row" style="border-bottom:1px solid #f3f4f6;">
+          <span class="label" style="padding-left:10px;">Piutang Umum</span>
+          <span class="value">${rupiah(data.piutang_umum)}</span>
+        </div>
+        <div class="row" style="border-bottom:1px solid #f3f4f6;">
+          <span class="label" style="padding-left:10px;">Piutang Kasbon Petugas</span>
+          <span class="value">${rupiah(data.piutang_kasbon)}</span>
+        </div>
+        <div class="row" style="font-weight:700; margin-top:4px;">
+          <span style="padding-left:10px; color:#1a7a4a;">Total Aktiva Lancar</span>
+          <span style="color:#1a7a4a;">${rupiah(data.kas + data.piutang)}</span>
+        </div>
+        
+        <h4 style="margin:16px 0 6px; font-size:13px; color:#4b5563;">Aktiva Tetap</h4>
+        <div class="row" style="border-bottom:1px solid #f3f4f6;">
+          <span class="label" style="padding-left:10px;">Peralatan & Mesin</span>
+          <span class="value">${rupiah(data.aset)}</span>
+        </div>
+        <div class="row" style="font-weight:700; margin-top:4px;">
+          <span style="padding-left:10px; color:#1a7a4a;">Total Aktiva Tetap</span>
+          <span style="color:#1a7a4a;">${rupiah(data.aset)}</span>
+        </div>
+        
+        <div style="margin-top:32px; padding:12px; background:#f3f4f6; border-radius:6px; display:flex; justify-content:space-between; font-weight:800; font-size:14px; border:1px solid #e5e7eb;">
+          <span style="color:#111827;">TOTAL AKTIVA</span>
+          <span style="color:#1a7a4a;">${rupiah(data.total_aktiva)}</span>
+        </div>
+      </div>
+      
+      <!-- SISI PASIVA (KANAN) -->
+      <div style="flex:1; border: 1px solid #d1d5db; border-radius: 8px; padding: 12px; background: #fff;">
+        <h3 style="margin-top:0; border-bottom:2px solid #1a7a4a; padding-bottom:6px; color:#1a7a4a;">PASIVA (KEWAJIBAN & EKUITAS)</h3>
+        
+        <h4 style="margin:10px 0 6px; font-size:13px; color:#4b5563;">Kewajiban (Hutang)</h4>
+        <div class="row" style="border-bottom:1px solid #f3f4f6;">
+          <span class="label" style="padding-left:10px;">Hutang Usaha / Lain-lain</span>
+          <span class="value">${rupiah(data.hutang)}</span>
+        </div>
+        <div class="row" style="font-weight:700; margin-top:4px;">
+          <span style="padding-left:10px; color:#1a7a4a;">Total Kewajiban</span>
+          <span style="color:#1a7a4a;">${rupiah(data.hutang)}</span>
+        </div>
+        
+        <h4 style="margin:16px 0 6px; font-size:13px; color:#4b5563;">Ekuitas (Modal)</h4>
+        <div class="row" style="border-bottom:1px solid #f3f4f6;">
+          <span class="label" style="padding-left:10px;">Modal Disetor (Subsidi Yayasan)</span>
+          <span class="value">${rupiah(data.modal)}</span>
+        </div>
+        <div class="row" style="border-bottom:1px solid #f3f4f6;">
+          <span class="label" style="padding-left:10px;">Laba Ditahan</span>
+          <span class="value">${rupiah(data.laba_ditahan)}</span>
+        </div>
+        <div class="row" style="font-weight:700; margin-top:4px;">
+          <span style="padding-left:10px; color:#1a7a4a;">Total Ekuitas</span>
+          <span style="color:#1a7a4a;">${rupiah(data.modal + data.laba_ditahan)}</span>
+        </div>
+        
+        <div style="margin-top:32px; padding:12px; background:#f3f4f6; border-radius:6px; display:flex; justify-content:space-between; font-weight:800; font-size:14px; border:1px solid #e5e7eb;">
+          <span style="color:#111827;">TOTAL PASIVA</span>
+          <span style="color:#1a7a4a;">${rupiah(data.total_pasiva)}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-top:32px;font-size:10px;color:#9ca3af;">Dicetak oleh: ${userName} pada ${formatTanggalID(new Date().toISOString().slice(0, 10))}</div>
+    ${FOOTER_HTML}
+  `;
+  await printPdf(html, `Laporan-Neraca-Skontro-${bulanLabelStr.replace(/\s+/g, "-")}.pdf`);
+}
+
