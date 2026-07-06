@@ -1,5 +1,5 @@
 import { useCallback, useState, useMemo } from "react";
-import { ScrollView, View, Text, TouchableOpacity, Alert, Modal, StyleSheet, TextInput } from "react-native";
+import { ScrollView, View, Text, TouchableOpacity, Alert, StyleSheet, TextInput, KeyboardAvoidingView, Platform, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 
@@ -195,94 +195,113 @@ export default function KelolaAkun() {
 
       {!isAuditor && <FAB onPress={openNew} />}
 
-      <Modal visible={show} transparent animationType="slide" onRequestClose={() => setShow(false)}>
-        <View style={styles.modalBg}>
-          <View style={styles.modalCard}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalTitle}>{editId ? "Edit Akun" : "Tambah Akun"}</Text>
-              <Input label="Nama Lengkap" value={nama} onChangeText={setNama} />
-              <Input label="Nomor HP" value={noHp} onChangeText={setNoHp} keyboardType="phone-pad" />
-              <Input
-                label={editId ? "Reset Password (kosongkan jika tidak diubah)" : "Password"}
-                value={password}
-                onChangeText={setPassword}
-                isPassword
-                placeholder={editId ? "Min 6 karakter" : "Min 6 karakter"}
-              />
-              <DatePickerField label="Tanggal Bergabung" value={tanggalBergabung} onChange={setTanggalBergabung} />
-              
-              <Text style={styles.label}>Role</Text>
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
-                {ROLES.map((r) => (
-                  <TouchableOpacity
-                    key={r.id}
-                    onPress={() => setRole(r.id as any)}
-                    style={[
-                      styles.pickerBtn,
-                      {
-                        flex: 1,
-                        backgroundColor: role === r.id ? Colors.primary + "15" : Colors.surface,
-                        borderColor: role === r.id ? Colors.primary : Colors.border,
-                        justifyContent: "center",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        color: role === r.id ? Colors.primary : Colors.text,
-                        fontSize: 14,
-                        fontWeight: "700",
-                        textAlign: "center",
-                      }}
+      {/* Form Modal */}
+      {show && (
+        <View style={[StyleSheet.absoluteFillObject, { zIndex: 1000 }]}>
+          <Pressable style={styles.modalOverlay} onPress={() => setShow(false)}>
+            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, width: "100%" }}>
+              <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
+                  <Text style={[styles.modalTitle, { color: Colors.text }]}>{editId ? "Edit Akun" : "Tambah Akun"}</Text>
+                  <Text style={styles.modalBody}>
+                    {editId ? "Ubah detail informasi akun pengguna." : "Daftarkan akun pengguna baru ke sistem."}
+                  </Text>
+
+                  <View style={{ width: "100%", gap: 12 }}>
+                    <Input label="Nama Lengkap" value={nama} onChangeText={setNama} placeholder="Nama Lengkap" />
+                    <Input label="Nomor HP" value={noHp} onChangeText={setNoHp} keyboardType="phone-pad" placeholder="08xxxxxxxxxx" />
+                    <Input
+                      label={editId ? "Reset Password (kosongkan jika tidak diubah)" : "Password"}
+                      value={password}
+                      onChangeText={setPassword}
+                      isPassword
+                      placeholder={editId ? "Min 6 karakter" : "Min 6 karakter"}
+                    />
+                    <DatePickerField label="Tanggal Bergabung" value={tanggalBergabung} onChange={setTanggalBergabung} />
+                    
+                    <Text style={styles.label}>Role</Text>
+                    <TouchableOpacity onPress={() => setShowRole(!showRole)} style={[styles.pickerBtn, { borderColor: Colors.borderLight, backgroundColor: Colors.surface, marginBottom: showRole ? 4 : 12 }]}>
+                      <Text style={{ color: role ? Colors.text : Colors.textSecondary }}>
+                        {ROLES.find(r => r.id === role)?.nama || "-- Pilih Role --"}
+                      </Text>
+                      <Ionicons name={showRole ? "chevron-up" : "chevron-down"} size={16} color={Colors.textSecondary} />
+                    </TouchableOpacity>
+
+                    {showRole && (
+                      <View style={{ backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 12, marginBottom: 12, maxHeight: 180, overflow: "hidden" }}>
+                        <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true}>
+                          {ROLES.map((r, idx, arr) => {
+                            const isSelected = r.id === role;
+                            return (
+                              <TouchableOpacity
+                                key={r.id}
+                                style={{
+                                  paddingHorizontal: 16,
+                                  paddingVertical: 12,
+                                  borderBottomWidth: idx === arr.length - 1 ? 0 : 1,
+                                  borderBottomColor: Colors.borderLight,
+                                  backgroundColor: isSelected ? Colors.primary + "12" : Colors.surface,
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  justifyContent: "space-between"
+                                }}
+                                onPress={() => {
+                                  setRole(r.id as any);
+                                  setShowRole(false);
+                                }}
+                              >
+                                <Text style={{ fontSize: 14, color: Colors.text, fontWeight: isSelected ? "700" : "400" }}>{r.nama}</Text>
+                                {isSelected && <Ionicons name="checkmark" size={16} color={Colors.primary} />}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      </View>
+                    )}
+
+                    {/* Checklist Status */}
+                    <TouchableOpacity
+                      style={{ flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 8 }}
+                      onPress={() => setStatus(status === "Aktif" ? "Resign" : "Aktif")}
+                      activeOpacity={0.7}
                     >
-                      {r.nama}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                      <Ionicons
+                        name={status === "Aktif" ? "checkbox" : "square-outline"}
+                        size={22}
+                        color={status === "Aktif" ? Colors.primary : Colors.textTertiary}
+                      />
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: Colors.text }}>
+                        Akun Aktif (Uncheck jika Resign)
+                      </Text>
+                    </TouchableOpacity>
 
-              <Text style={styles.label}>Status Akun</Text>
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
-                {["Aktif", "Resign"].map((s) => (
-                  <TouchableOpacity
-                    key={s}
-                    onPress={() => setStatus(s as any)}
-                    style={[
-                      styles.pickerBtn,
-                      {
-                        flex: 1,
-                        backgroundColor: status === s ? Colors.primary + "15" : Colors.surface,
-                        borderColor: status === s ? Colors.primary : Colors.border,
-                        justifyContent: "center",
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        color: status === s ? Colors.primary : Colors.text,
-                        fontSize: 14,
-                        fontWeight: "700",
-                        textAlign: "center",
-                      }}
+                    {status === "Resign" && (
+                      <DatePickerField label="Tanggal Keluar (Resign)" value={tanggalKeluar} onChange={setTanggalKeluar} />
+                    )}
+                  </View>
+
+                  <View style={styles.modalBtnRow}>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, { backgroundColor: Colors.borderLight }]}
+                      onPress={() => setShow(false)}
+                      activeOpacity={0.8}
                     >
-                      {s}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {status === "Resign" && (
-                <DatePickerField label="Tanggal Keluar (Resign)" value={tanggalKeluar} onChange={setTanggalKeluar} />
-              )}
-
-              <View style={{ flexDirection: "row", gap: 8, marginTop: 16 }}>
-                <View style={{ flex: 1 }}><Button title="Batal" variant="outline" onPress={() => setShow(false)} /></View>
-                <View style={{ flex: 1 }}><Button title="Simpan" onPress={save} /></View>
-              </View>
-            </ScrollView>
-          </View>
+                      <Text style={[styles.modalBtnText, { color: Colors.textSecondary }]}>Batal</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalBtn, { backgroundColor: Colors.primary, flex: 1.4 }]}
+                      onPress={save}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.modalBtnText, { color: Colors.textOnPrimary }]}>Simpan</Text>
+                    </TouchableOpacity>
+                  </View>
+                </Pressable>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </Pressable>
         </View>
-      </Modal>
+      )}
 
 
       <ConfirmDialog
@@ -297,9 +316,64 @@ export default function KelolaAkun() {
 }
 
 const baseStyles = (Colors: any) => StyleSheet.create({
-  modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 24 },
-  modalCard: { backgroundColor: Colors.surface, borderRadius: 20, padding: 24, maxHeight: "80%" },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: Colors.text, marginBottom: 14 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)"
+  },
+  modalScroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    paddingHorizontal: 28,
+    paddingVertical: 40
+  },
+  modalSheet: {
+    width: "100%",
+    backgroundColor: Colors.surface,
+    padding: 28,
+    borderRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 16,
+    alignItems: "center"
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.text,
+    marginBottom: 8,
+    textAlign: "center",
+    letterSpacing: -0.3
+  },
+  modalBody: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24
+  },
+  modalBtnRow: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+    marginTop: 16
+  },
+  modalBtn: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 14
+  },
+  modalBtnText: {
+    fontSize: 15,
+    fontWeight: "800"
+  },
   label: { fontSize: 13, fontWeight: "600", color: Colors.text, marginBottom: 6 },
   pickerBtn: {
     borderWidth: 1.5,
