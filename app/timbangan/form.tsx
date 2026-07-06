@@ -82,17 +82,50 @@ export default function TimbanganForm() {
 
         <Text style={styles.label}>Unit</Text>
         <TouchableOpacity
-          onPress={() => setShowUnits(true)}
-          style={styles.pickerBtn}
+          onPress={() => setShowUnits(!showUnits)}
+          style={[styles.pickerBtn, { marginBottom: showUnits ? 4 : 16 }]}
           testID="timbangan-unit"
         >
           <Ionicons name="business-outline" size={18} color={Colors.textSecondary} />
           <Text style={{ flex: 1, color: unitName ? Colors.text : Colors.textTertiary, fontSize: 15 }}>
             {unitName || "Pilih unit"}
           </Text>
-          <Ionicons name="chevron-down" size={18} color={Colors.textSecondary} />
+          <Ionicons name={showUnits ? "chevron-up" : "chevron-down"} size={18} color={Colors.textSecondary} />
         </TouchableOpacity>
         {errors.unitId && <Text style={styles.err}>{errors.unitId}</Text>}
+
+        {showUnits && (
+          <View style={{ backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, marginBottom: 16, maxHeight: 180, overflow: "hidden" }}>
+            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true}>
+              {units.map((u, idx, arr) => {
+                const isSelected = u.id === unitId;
+                return (
+                  <TouchableOpacity
+                    key={u.id}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderBottomWidth: idx === arr.length - 1 ? 0 : 1,
+                      borderBottomColor: Colors.borderLight,
+                      backgroundColor: isSelected ? Colors.primary + "12" : Colors.surface,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between"
+                    }}
+                    onPress={() => {
+                      setUnitId(u.id);
+                      setUnitName(u.nama);
+                      setShowUnits(false);
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, color: Colors.text, fontWeight: isSelected ? "700" : "400" }}>{u.nama}</Text>
+                    {isSelected && <Ionicons name="checkmark" size={16} color={Colors.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         <View style={{ marginTop: 14 }} />
         <Input
@@ -110,17 +143,7 @@ export default function TimbanganForm() {
         </View>
       </ScrollView>
 
-      <PickerModal
-        visible={showUnits}
-        title="Pilih Unit"
-        items={units}
-        selectedId={unitId}
-        onSelect={(u) => {
-          setUnitId(u.id);
-          setUnitName(u.nama);
-        }}
-        onClose={() => setShowUnits(false)}
-      />
+
     </ScreenContainer>
   );
 }
