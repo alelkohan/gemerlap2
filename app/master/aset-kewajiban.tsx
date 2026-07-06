@@ -459,8 +459,8 @@ export default function AsetKewajibanScreen() {
 
       {/* Modal Aset */}
       <Modal transparent animationType="fade" visible={showAsetModal} onRequestClose={() => setShowAsetModal(false)} statusBarTranslucent>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-          <Pressable style={styles.modalOverlay} onPress={() => setShowAsetModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowAsetModal(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, width: "100%" }}>
             <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
                 <Text style={[styles.modalTitle, { color: Colors.text }]}>Tambah Aset Tetap</Text>
@@ -494,14 +494,14 @@ export default function AsetKewajibanScreen() {
                 </View>
               </Pressable>
             </ScrollView>
-          </Pressable>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
 
       {/* Modal Hutang */}
       <Modal transparent animationType="fade" visible={showHutangModal} onRequestClose={() => setShowHutangModal(false)} statusBarTranslucent>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-          <Pressable style={styles.modalOverlay} onPress={() => setShowHutangModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowHutangModal(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, width: "100%" }}>
             <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
                 <Text style={[styles.modalTitle, { color: Colors.text }]}>Catat Hutang Baru</Text>
@@ -535,14 +535,14 @@ export default function AsetKewajibanScreen() {
                 </View>
               </Pressable>
             </ScrollView>
-          </Pressable>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
 
       {/* Modal Piutang */}
       <Modal transparent animationType="fade" visible={showPiutangModal} onRequestClose={() => setShowPiutangModal(false)} statusBarTranslucent>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-          <Pressable style={styles.modalOverlay} onPress={() => setShowPiutangModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPiutangModal(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, width: "100%" }}>
             <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
                 <Text style={[styles.modalTitle, { color: Colors.text }]}>Catat Piutang Baru</Text>
@@ -576,14 +576,14 @@ export default function AsetKewajibanScreen() {
                 </View>
               </Pressable>
             </ScrollView>
-          </Pressable>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
 
       {/* Modal Bayar Cicilan */}
       <Modal transparent animationType="fade" visible={showBayarModal} onRequestClose={() => setShowBayarModal(false)} statusBarTranslucent>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-          <Pressable style={styles.modalOverlay} onPress={() => setShowBayarModal(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowBayarModal(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, width: "100%" }}>
             <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <Pressable style={[styles.modalSheet, { backgroundColor: Colors.surface }]} onPress={() => {}}>
                 <Text style={[styles.modalTitle, { color: Colors.text }]}>
@@ -620,8 +620,8 @@ export default function AsetKewajibanScreen() {
                 </View>
               </Pressable>
             </ScrollView>
-          </Pressable>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
 
       {/* Modal Detail Hutang / Piutang */}
