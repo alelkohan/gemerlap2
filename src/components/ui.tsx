@@ -206,7 +206,7 @@ export function PickerModal<T extends { id: string; nama: string }>({
   const Colors = useColors();
   const styles = useMemo(() => baseStyles(Colors), [Colors]);
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
         <Pressable style={styles.modalSheet} onPress={() => {}}>
           <View style={{ alignItems: "center", paddingTop: 8 }}>
