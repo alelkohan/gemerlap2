@@ -2253,6 +2253,340 @@ async def check_daily_alpha():
             # Check every minute
             await asyncio.sleep(60)
 
+
+# ================= ASET, HUTANG & PIUTANG MODELS =================
+class AsetCreate(BaseModel):
+    nama_aset: str
+    tanggal_perolehan: str
+    harga_perolehan: float
+    keterangan: Optional[str] = None
+
+class HutangCreate(BaseModel):
+    nama_kreditor: str
+    tanggal_pinjam: str
+    jumlah_hutang: float
+    keterangan: Optional[str] = None
+
+class HutangBayar(BaseModel):
+    tanggal: str
+    nominal: float
+    keterangan: Optional[str] = None
+
+class PiutangCreate(BaseModel):
+    nama_debitur: str
+    tanggal_piutang: str
+    jumlah_piutang: float
+    keterangan: Optional[str] = None
+
+class PiutangBayar(BaseModel):
+    tanggal: str
+    nominal: float
+    keterangan: Optional[str] = None
+
+
+# ================= ASET, HUTANG & PIUTANG ENDPOINTS =================
+
+# ─── ASET ENDPOINTS ────────────────────────────────────────────────────────────
+@api_router.get('/aset')
+async def list_aset(current=Depends(admin_or_auditor_required)):
+    return await db.aset.find({}, {'_id': 0}).sort('tanggal_perolehan', -1).to_list(1000)
+
+@api_router.post('/aset')
+async def create_aset(req: AsetCreate, current=Depends(admin_required)):
+    aset_id = str(uuid.uuid4())
+    aset_doc = {
+        'id': aset_id,
+        'nama_aset': req.nama_aset,
+        'tanggal_perolehan': req.tanggal_perolehan,
+        'harga_perolehan': req.harga_perolehan,
+        'keterangan': req.keterangan
+    }
+    await db.aset.insert_one(aset_doc)
+    
+    # Auto-sync to keuangan
+    keuangan_doc = {
+        'id': str(uuid.uuid4()),
+        'tanggal': req.tanggal_perolehan,
+        'tipe': 'pengeluaran',
+        'total': req.harga_perolehan,
+        'kategori': 'Peralatan',
+        'keterangan': f"Pembelian Aset: {req.nama_aset}. {req.keterangan or ''}".strip(),
+        'reference_id': aset_id,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.keuangan.insert_one(keuangan_doc)
+    return {k: v for k, v in aset_doc.items() if k != '_id'}
+
+@api_router.delete('/aset/{id}')
+async def delete_aset(id: str, current=Depends(admin_required)):
+    res = await db.aset.delete_one({'id': id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Aset tidak ditemukan")
+    await db.keuangan.delete_many({'reference_id': id})
+    return {'status': 'success', 'message': 'Aset berhasil dihapus'}
+
+
+# ─── HUTANG ENDPOINTS ──────────────────────────────────────────────────────────
+@api_router.get('/hutang')
+async def list_hutang(current=Depends(admin_or_auditor_required)):
+    return await db.utang.find({}, {'_id': 0}).sort('tanggal_pinjam', -1).to_list(1000)
+
+@api_router.post('/hutang')
+async def create_hutang(req: HutangCreate, current=Depends(admin_required)):
+    hutang_id = str(uuid.uuid4())
+    hutang_doc = {
+        'id': hutang_id,
+        'nama_kreditor': req.nama_kreditor,
+        'tanggal_pinjam': req.tanggal_pinjam,
+        'jumlah_hutang': req.jumlah_hutang,
+        'sisa_hutang': req.jumlah_hutang,
+        'keterangan': req.keterangan,
+        'status': 'belum_lunas',
+        'riwayat_cicilan': []
+    }
+    await db.utang.insert_one(hutang_doc)
+    
+    # Auto-sync to keuangan
+    keuangan_doc = {
+        'id': str(uuid.uuid4()),
+        'tanggal': req.tanggal_pinjam,
+        'tipe': 'sumber lain',
+        'nama_pihak': req.nama_kreditor,
+        'total': req.jumlah_hutang,
+        'keterangan': f"Penerimaan Hutang dari {req.nama_kreditor}. {req.keterangan or ''}".strip(),
+        'reference_id': hutang_id,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.keuangan.insert_one(keuangan_doc)
+    return {k: v for k, v in hutang_doc.items() if k != '_id'}
+
+@api_router.post('/hutang/{id}/bayar')
+async def bayar_hutang(id: str, req: HutangBayar, current=Depends(admin_required)):
+    hutang = await db.utang.find_one({'id': id})
+    if not hutang:
+        raise HTTPException(status_code=404, detail="Data hutang tidak ditemukan")
+        
+    if hutang['status'] == 'lunas':
+        raise HTTPException(status_code=400, detail="Hutang sudah lunas")
+        
+    next_sisa = hutang['sisa_hutang'] - req.nominal
+    if next_sisa < 0:
+        raise HTTPException(status_code=400, detail="Nominal pembayaran melebihi sisa hutang")
+        
+    next_status = 'lunas' if next_sisa == 0 else 'belum_lunas'
+    
+    cicilan_item = {
+        'id': str(uuid.uuid4()),
+        'tanggal': req.tanggal,
+        'nominal': req.nominal,
+        'keterangan': req.keterangan or ''
+    }
+    
+    await db.utang.update_one(
+        {'id': id},
+        {
+            '$set': {'sisa_hutang': next_sisa, 'status': next_status},
+            '$push': {'riwayat_cicilan': cicilan_item}
+        }
+    )
+    
+    # Auto-sync to keuangan
+    keuangan_doc = {
+        'id': str(uuid.uuid4()),
+        'tanggal': req.tanggal,
+        'tipe': 'pengeluaran',
+        'total': req.nominal,
+        'kategori': 'Lain-lain',
+        'keterangan': f"Pembayaran Cicilan Hutang ke {hutang['nama_kreditor']}. {req.keterangan or ''}".strip(),
+        'reference_id': id,
+        'cicilan_id': cicilan_item['id'],
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.keuangan.insert_one(keuangan_doc)
+    return {'status': 'success', 'sisa_hutang': next_sisa, 'status_hutang': next_status}
+
+@api_router.delete('/hutang/{id}')
+async def delete_hutang(id: str, current=Depends(admin_required)):
+    res = await db.utang.delete_one({'id': id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Hutang tidak ditemukan")
+    await db.keuangan.delete_many({'reference_id': id})
+    return {'status': 'success', 'message': 'Hutang berhasil dihapus'}
+
+
+# ─── PIUTANG ENDPOINTS ─────────────────────────────────────────────────────────
+@api_router.get('/piutang')
+async def list_piutang(current=Depends(admin_or_auditor_required)):
+    return await db.piutang.find({}, {'_id': 0}).sort('tanggal_piutang', -1).to_list(1000)
+
+@api_router.post('/piutang')
+async def create_piutang(req: PiutangCreate, current=Depends(admin_required)):
+    piutang_id = str(uuid.uuid4())
+    piutang_doc = {
+        'id': piutang_id,
+        'nama_debitur': req.nama_debitur,
+        'tanggal_piutang': req.tanggal_piutang,
+        'jumlah_piutang': req.jumlah_piutang,
+        'sisa_piutang': req.jumlah_piutang,
+        'keterangan': req.keterangan,
+        'status': 'belum_lunas',
+        'riwayat_cicilan': []
+    }
+    await db.piutang.insert_one(piutang_doc)
+    return {k: v for k, v in piutang_doc.items() if k != '_id'}
+
+@api_router.post('/piutang/{id}/bayar')
+async def bayar_piutang(id: str, req: PiutangBayar, current=Depends(admin_required)):
+    piutang = await db.piutang.find_one({'id': id})
+    if not piutang:
+        raise HTTPException(status_code=404, detail="Data piutang tidak ditemukan")
+        
+    if piutang['status'] == 'lunas':
+        raise HTTPException(status_code=400, detail="Piutang sudah lunas")
+        
+    next_sisa = piutang['sisa_piutang'] - req.nominal
+    if next_sisa < 0:
+        raise HTTPException(status_code=400, detail="Nominal pembayaran melebihi sisa piutang")
+        
+    next_status = 'lunas' if next_sisa == 0 else 'belum_lunas'
+    
+    cicilan_item = {
+        'id': str(uuid.uuid4()),
+        'tanggal': req.tanggal,
+        'nominal': req.nominal,
+        'keterangan': req.keterangan or ''
+    }
+    
+    await db.piutang.update_one(
+        {'id': id},
+        {
+            '$set': {'sisa_piutang': next_sisa, 'status': next_status},
+            '$push': {'riwayat_cicilan': cicilan_item}
+        }
+    )
+    
+    # Auto-sync to keuangan
+    keuangan_doc = {
+        'id': str(uuid.uuid4()),
+        'tanggal': req.tanggal,
+        'tipe': 'sumber lain',
+        'nama_pihak': piutang['nama_debitur'],
+        'total': req.nominal,
+        'keterangan': f"Pelunasan Piutang dari {piutang['nama_debitur']}. {req.keterangan or ''}".strip(),
+        'reference_id': id,
+        'cicilan_id': cicilan_item['id'],
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    await db.keuangan.insert_one(keuangan_doc)
+    return {'status': 'success', 'sisa_piutang': next_sisa, 'status_piutang': next_status}
+
+@api_router.delete('/piutang/{id}')
+async def delete_piutang(id: str, current=Depends(admin_required)):
+    res = await db.piutang.delete_one({'id': id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Piutang tidak ditemukan")
+    await db.keuangan.delete_many({'reference_id': id})
+    return {'status': 'success', 'message': 'Piutang berhasil dihapus'}
+
+
+# ─── NERACA SKONTRO ENDPOINT ───────────────────────────────────────────────────
+@api_router.get('/laporan/neraca-skontro')
+async def laporan_neraca_skontro(bulan: str, current=Depends(admin_or_auditor_required)):
+    # bulan format: YYYY-MM
+    parts = bulan.split("-")
+    year = int(parts[0])
+    month = int(parts[1])
+    if month == 12:
+        next_month = datetime(year + 1, 1, 1)
+    else:
+        next_month = datetime(year, month + 1, 1)
+    last_day_dt = next_month - timedelta(days=1)
+    end_date = last_day_dt.strftime('%Y-%m-%d')
+    
+    # 1. Kas
+    incomes = await db.keuangan.find({
+        'tanggal': {'$lte': end_date},
+        'tipe': {'$in': ['penjualan', 'sumber lain', 'retribusi']}
+    }).to_list(100000)
+    total_in = sum(it.get('total', 0) for it in incomes)
+    
+    expenses = await db.keuangan.find({
+        'tanggal': {'$lte': end_date},
+        'tipe': 'pengeluaran'
+    }).to_list(100000)
+    total_out = sum(it.get('total', 0) for it in expenses)
+    
+    kas = total_in - total_out
+    
+    # 2. Piutang
+    piutangs_raw = await db.piutang.find({'tanggal_piutang': {'$lte': end_date}}).to_list(10000)
+    piutang_total_sisa = 0.0
+    for p in piutangs_raw:
+        initial = p.get('jumlah_piutang', 0)
+        paid = sum(c.get('nominal', 0) for c in p.get('riwayat_cicilan', []) if c.get('tanggal', '') <= end_date)
+        piutang_total_sisa += max(0.0, initial - paid)
+        
+    kasbons = await db.kasbon.find({'tanggal': {'$lte': end_date}}).to_list(10000)
+    kasbon_total_sisa = 0.0
+    for k in kasbons:
+        is_repaid = False
+        if k.get('status') == 'lunas':
+            repay_period = k.get('slip_gaji_id', '')
+            if repay_period and repay_period <= bulan:
+                is_repaid = True
+        if not is_repaid:
+            kasbon_total_sisa += k.get('nominal', 0)
+            
+    total_piutang = piutang_total_sisa + kasbon_total_sisa
+    
+    # 3. Aset
+    assets_raw = await db.aset.find({'tanggal_perolehan': {'$lte': end_date}}).to_list(10000)
+    total_aset = sum(a.get('harga_perolehan', 0) for a in assets_raw)
+    
+    # 4. Hutang
+    hutangs_raw = await db.utang.find({'tanggal_pinjam': {'$lte': end_date}}).to_list(10000)
+    total_hutang = 0.0
+    for h in hutangs_raw:
+        initial = h.get('jumlah_hutang', 0)
+        paid = sum(c.get('nominal', 0) for c in h.get('riwayat_cicilan', []) if c.get('tanggal', '') <= end_date)
+        total_hutang += max(0.0, initial - paid)
+        
+    # 5. Modal
+    total_modal = 0.0
+    for it in incomes:
+        tipe = it.get('tipe')
+        kat = (it.get('kategori') or '').lower()
+        desc = (it.get('keterangan') or '').lower()
+        pihak = (it.get('nama_pihak') or '').lower()
+        
+        is_modal = False
+        if tipe == 'retribusi':
+            is_modal = True
+        elif tipe == 'sumber lain':
+            if 'subsidi' in pihak or 'subsidi' in desc or 'retribusi' in pihak or 'retribusi' in desc or 'retribusi' in kat:
+                is_modal = True
+                
+        if is_modal:
+            total_modal += it.get('total', 0)
+            
+    # 6. Laba Ditahan
+    laba_ditahan = kas + total_piutang + total_aset - total_hutang - total_modal
+    
+    return {
+        'bulan': bulan,
+        'kas': round(kas, 2),
+        'piutang': round(total_piutang, 2),
+        'piutang_umum': round(piutang_total_sisa, 2),
+        'piutang_kasbon': round(kasbon_total_sisa, 2),
+        'aset': round(total_aset, 2),
+        'hutang': round(total_hutang, 2),
+        'modal': round(total_modal, 2),
+        'laba_ditahan': round(laba_ditahan, 2),
+        'total_aktiva': round(kas + total_piutang + total_aset, 2),
+        'total_pasiva': round(total_hutang + total_modal + laba_ditahan, 2)
+    }
+
+
 @app.on_event('startup')
 async def startup_event():
     await seed_data()
