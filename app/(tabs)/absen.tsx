@@ -403,6 +403,60 @@ export default function AbsenScreen() {
     }
   }, [loadAll, selectedDate]);
 
+  const handleStartBreak = async () => {
+    setLoadingAction(true);
+    try {
+      const res = await apiFetch("/absensi/break/start", { method: "POST" });
+      if (Platform.OS === "web") {
+        webAlert("Istirahat Dimulai", res.message || "Waktu istirahat telah dimulai.");
+        await loadAll(selectedDate);
+      } else {
+        showResult("success", "Istirahat Dimulai", res.message || "Waktu istirahat telah dimulai.", () =>
+          loadAll(selectedDate)
+        );
+      }
+    } catch (e: any) {
+      if (Platform.OS === "web") {
+        webAlert("Gagal Istirahat", e.message);
+      } else {
+        showResult("error", "Gagal Istirahat", e.message || "Terjadi kesalahan saat memulai istirahat.");
+      }
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleEndBreak = async () => {
+    setLoadingAction(true);
+    try {
+      let coords = { latitude: 0, longitude: 0 };
+      try {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      } catch (err) {
+        throw new Error("Gagal mendapatkan lokasi GPS. Pastikan GPS aktif.");
+      }
+
+      const res = await apiFetch("/absensi/break/end", { method: "POST", body: coords });
+      if (Platform.OS === "web") {
+        webAlert("Kembali Bekerja", res.message || "Waktu istirahat selesai, kembali bekerja.");
+        await loadAll(selectedDate);
+      } else {
+        showResult("success", "Kembali Bekerja", res.message || "Waktu istirahat selesai, kembali bekerja.", () =>
+          loadAll(selectedDate)
+        );
+      }
+    } catch (e: any) {
+      if (Platform.OS === "web") {
+        webAlert("Gagal Mengakhiri Istirahat", e.message);
+      } else {
+        showResult("error", "Gagal Mengakhiri Istirahat", e.message || "Terjadi kesalahan.");
+      }
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
   const handleDeleteStatus = async () => {
     setShowDeleteStatus(false);
     setLoadingAction(true);
@@ -776,21 +830,62 @@ export default function AbsenScreen() {
             <Card style={{ padding: 20, alignItems: "center" }}>
               {status?.has_active_session ? (
                 <>
-                  <View style={styles.activePulse}>
-                    <Ionicons name="time" size={48} color={Colors.primary} />
-                  </View>
-                  <Text style={styles.actionTitle}>Sesi Kerja Berjalan</Text>
-                  <Text style={styles.actionDesc}>
-                    Check-in sejak: {formatJam(status.active_session?.check_in)}
-                  </Text>
-
-                  {status.active_session?.outside_since && (
-                    <View style={styles.warningBox}>
-                      <Ionicons name="warning" size={16} color={Colors.error} />
-                      <Text style={styles.warningText}>
-                        Peringatan: Anda di luar area TPS! Sesi akan otomatis berakhir.
+                  {status.active_session?.is_break ? (
+                    <>
+                      <View style={[styles.activePulse, { backgroundColor: Colors.warningBg }]}>
+                        <Ionicons name="cafe" size={48} color={Colors.warning} />
+                      </View>
+                      <Text style={styles.actionTitle}>Masa Istirahat Aktif</Text>
+                      <Text style={styles.actionDesc}>
+                        Mulai sejak: {formatJam(status.active_session?.break_start)}
                       </Text>
-                    </View>
+                      <Text style={{ fontSize: 12, color: Colors.textSecondary, marginBottom: 16, textAlign: "center", paddingHorizontal: 12, lineHeight: 18 }}>
+                        Jam kerja tetap dihitung. Anda dapat meninggalkan area TPS. Untuk selesai istirahat, Anda harus berada kembali di area TPS.
+                      </Text>
+
+                      <TouchableOpacity
+                        onPress={handleEndBreak}
+                        disabled={loadingAction}
+                        style={[styles.btn, { backgroundColor: Colors.success, marginBottom: 8 }]}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="play" size={20} color="#fff" />
+                        <Text style={styles.btnText}>
+                          {loadingAction ? "Memproses..." : "Selesai Istirahat (Kembali Kerja)"}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.activePulse}>
+                        <Ionicons name="time" size={48} color={Colors.primary} />
+                      </View>
+                      <Text style={styles.actionTitle}>Sesi Kerja Berjalan</Text>
+                      <Text style={styles.actionDesc}>
+                        Check-in sejak: {formatJam(status.active_session?.check_in)}
+                      </Text>
+
+                      {status.active_session?.outside_since && (
+                        <View style={styles.warningBox}>
+                          <Ionicons name="warning" size={16} color={Colors.error} />
+                          <Text style={styles.warningText}>
+                            Peringatan: Anda di luar area TPS! Sesi akan otomatis berakhir.
+                          </Text>
+                        </View>
+                      )}
+
+                      <TouchableOpacity
+                        onPress={handleStartBreak}
+                        disabled={loadingAction}
+                        style={[styles.btn, { backgroundColor: Colors.warning, marginBottom: 8 }]}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="cafe" size={20} color="#fff" />
+                        <Text style={styles.btnText}>
+                          {loadingAction ? "Memproses..." : "Mulai Istirahat"}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
                   )}
 
                   <TouchableOpacity
