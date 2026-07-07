@@ -27,28 +27,13 @@ export default function SlipGajiScreen() {
   const sakit = parseInt(params.sakit as string || "0");
   const total_jam = parseFloat(params.total_jam as string || "0");
 
-  const targetJamSebulan = hadir * 8;
-  const deficitJam = Math.max(0, targetJamSebulan - total_jam);
-  const extraJam = Math.max(0, total_jam - targetJamSebulan);
-  
-  const dendaTelat = deficitJam * 8300;
-  const uangLembur = extraJam * 11250;
-  const baseGaji = targetJamSebulan * 8300;
-  const dendaAlpha = absen * 66400;
+  const [extraJam, setExtraJam] = useState(0);
+  const [deficitJam, setDeficitJam] = useState(0);
 
-  const initGajiPokok = baseGaji;
-  const initPotongan = dendaTelat + dendaAlpha;
-
-  const [gajiPokok, setGajiPokok] = useState(() => formatRupiahInput(Math.round(initGajiPokok).toString()));
-  const [tunjangan, setTunjangan] = useState(() => uangLembur > 0 ? formatRupiahInput(Math.round(uangLembur).toString()) : "");
-  const [potongan, setPotongan] = useState(() => initPotongan > 0 ? formatRupiahInput(Math.round(initPotongan).toString()) : "");
-  const [keterangan, setKeterangan] = useState(() => {
-    let ket = [];
-    if (dendaAlpha > 0) ket.push(`Potongan Alpha (${absen} hari)`);
-    if (dendaTelat > 0) ket.push(`Potongan Keterlambatan (${deficitJam.toFixed(2)} jam)`);
-    if (uangLembur > 0) ket.push(`Termasuk lembur (${extraJam.toFixed(2)} jam)`);
-    return ket.join(", ");
-  });
+  const [gajiPokok, setGajiPokok] = useState("");
+  const [tunjangan, setTunjangan] = useState("");
+  const [potongan, setPotongan] = useState("");
+  const [keterangan, setKeterangan] = useState("");
   const [buktiUrl, setBuktiUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [isLunas, setIsLunas] = useState(false);
@@ -76,21 +61,50 @@ export default function SlipGajiScreen() {
           kasbons = await apiFetch(`/kasbon/pending/${petugas_id}`) || [];
         } catch(e: any) {}
         
-        let pot = initPotongan;
-        let ketList: string[] = [];
-        if (dendaAlpha > 0) ketList.push(`Potongan Alpha (${absen} hari)`);
-        if (dendaTelat > 0) ketList.push(`Potongan Keterlambatan (${deficitJam.toFixed(2)} jam)`);
-        if (uangLembur > 0) ketList.push(`Termasuk lembur (${extraJam.toFixed(2)} jam)`);
-
         let kIds: string[] = [];
+        let sumKasbon = 0;
         if (kasbons && kasbons.length > 0) {
            setKasbonDetails(kasbons);
-           const sumKasbon = kasbons.reduce((acc: number, k: any) => acc + k.nominal, 0);
+           sumKasbon = kasbons.reduce((acc: number, k: any) => acc + k.nominal, 0);
            setMinPotonganKasbon(sumKasbon);
-           pot += sumKasbon;
            kasbons.forEach((k: any) => kIds.push(k.id));
-           ketList.push(`Potongan Kasbon (Rp ${sumKasbon.toLocaleString("id-ID")})`);
         }
+
+        let details: any[] = [];
+        try {
+          details = await apiFetch(`/absensi/detail/${petugas_id}?bulan=${bulan}`) || [];
+        } catch(e: any) {}
+
+        let totalExtraJam = 0;
+        let totalDeficitJam = 0;
+
+        for (const rec of details) {
+          if (rec.status === "hadir") {
+            const actualJam = rec.jam || 0;
+            const approvedLembur = (rec.lembur_items || [])
+              .filter((l: any) => l.status === "approved")
+              .reduce((acc: number, l: any) => acc + (l.durasi_jam || 0), 0);
+
+            if (actualJam >= 8.0) {
+              const excess = actualJam - 8.0;
+              totalExtraJam += Math.min(approvedLembur, excess);
+            } else {
+              const deficit = 8.0 - actualJam;
+              // 5 minutes tolerance (5 / 60 = 0.0833 hours)
+              if (deficit > (5.0 / 60.0)) {
+                totalDeficitJam += deficit;
+              }
+            }
+          }
+        }
+
+        setExtraJam(totalExtraJam);
+        setDeficitJam(totalDeficitJam);
+
+        const calculatedDendaTelat = totalDeficitJam * 8300;
+        const calculatedUangLembur = totalExtraJam * 11250;
+        const calculatedBaseGaji = (hadir * 8) * 8300;
+        const calculatedDendaAlpha = absen * 66400;
 
         let gaji: any = null;
         try {
@@ -103,7 +117,6 @@ export default function SlipGajiScreen() {
           setTunjangan(formatRupiahInput(gaji.tunjangan.toString()));
           if (kasbons && kasbons.length > 0) {
             const savedPot = gaji.potongan || 0;
-            const sumKasbon = kasbons.reduce((acc: number, k: any) => acc + k.nominal, 0);
             setPotongan(formatRupiahInput(Math.round(savedPot + sumKasbon).toString()));
             const savedKet = gaji.keterangan || "";
             const kasbonKet = `Potongan Kasbon (Rp ${sumKasbon.toLocaleString("id-ID")})`;
@@ -116,12 +129,24 @@ export default function SlipGajiScreen() {
           setBuktiUrl(gaji.bukti_url || "");
           setIsLunas(true);
         } else {
-          setPotongan(formatRupiahInput(Math.round(pot).toString()));
+          setGajiPokok(formatRupiahInput(Math.round(calculatedBaseGaji).toString()));
+          setTunjangan(calculatedUangLembur > 0 ? formatRupiahInput(Math.round(calculatedUangLembur).toString()) : "");
+          
+          let finalPotongan = calculatedDendaTelat + calculatedDendaAlpha + sumKasbon;
+          let ketList: string[] = [];
+          if (calculatedDendaAlpha > 0) ketList.push(`Potongan Alpha (${absen} hari)`);
+          if (calculatedDendaTelat > 0) ketList.push(`Potongan Keterlambatan (${totalDeficitJam.toFixed(2)} jam)`);
+          if (calculatedUangLembur > 0) ketList.push(`Termasuk lembur (${totalExtraJam.toFixed(2)} jam)`);
+          if (sumKasbon > 0) {
+             ketList.push(`Potongan Kasbon (Rp ${sumKasbon.toLocaleString("id-ID")})`);
+          }
+
+          setPotongan(finalPotongan > 0 ? formatRupiahInput(Math.round(finalPotongan).toString()) : "");
           setKeterangan(ketList.join(", "));
           setKasbonIds(kIds);
         }
       } catch (e) {
-        // Not found, normal flow
+        // Error handling
       } finally {
         setInitLoading(false);
       }
