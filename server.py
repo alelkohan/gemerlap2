@@ -969,11 +969,28 @@ async def get_absensi_by_date(tanggal: str, current=Depends(get_current_user)):
 
 @api_router.get('/absensi/detail/{petugas_id}')
 async def get_absensi_detail(petugas_id: str, bulan: str, current=Depends(get_current_user)):
-    """Return all daily absensi records for a petugas in a given month (YYYY-MM)."""
+    """Return all daily absensi records for a petugas in a given month (YYYY-MM), including daily lembur items."""
     records = await db.absensi.find(
         {'petugas_id': petugas_id, 'tanggal': {'$regex': f'^{bulan}'}},
         {'_id': 0}
     ).sort('tanggal', 1).to_list(1000)
+
+    lemburs = await db.lembur.find(
+        {'petugas_id': petugas_id, 'tanggal': {'$regex': f'^{bulan}'}},
+        {'_id': 0}
+    ).to_list(1000)
+
+    # Attach lembur items to the respective daily record
+    lembur_by_date = {}
+    for l in lemburs:
+        dt = l.get('tanggal')
+        if dt not in lembur_by_date:
+            lembur_by_date[dt] = []
+        lembur_by_date[dt].append(l)
+
+    for rec in records:
+        rec['lembur_items'] = lembur_by_date.get(rec['tanggal'], [])
+
     return records
 
 
@@ -1518,6 +1535,18 @@ async def rekap_absensi(bulan: str, current=Depends(get_current_user)):
         }},
     ]
     res = await db.absensi.aggregate(pipeline).to_list(10000)
+
+    # Aggregate approved lembur for this month
+    lembur_pipeline = [
+        {'$match': {'status': 'approved', 'tanggal': {'$regex': f'^{bulan}'}}},
+        {'$group': {
+            '_id': '$petugas_id',
+            'total_lembur': {'$sum': '$durasi_jam'}
+        }}
+    ]
+    lembur_res = await db.lembur.aggregate(lembur_pipeline).to_list(1000)
+    lembur_map = {r['_id']: r['total_lembur'] for r in lembur_res}
+
     # Exclude auditors from rekap
     auditor_users = await db.users.find({'role': 'auditor'}, {'_id': 0, 'id': 1}).to_list(1000)
     auditor_ids = {u['id'] for u in auditor_users}
@@ -1529,7 +1558,7 @@ async def rekap_absensi(bulan: str, current=Depends(get_current_user)):
         # Skip auditors
         if pid in auditor_ids or p.get('user_id') in auditor_ids:
             continue
-        rekap[pid] = {'petugas_id': pid, 'nama': p['nama'], 'hadir': 0, 'absen': 0, 'izin': 0, 'sakit': 0, 'total_jam': 0}
+        rekap[pid] = {'petugas_id': pid, 'nama': p['nama'], 'hadir': 0, 'absen': 0, 'izin': 0, 'sakit': 0, 'total_jam': 0, 'total_lembur': 0}
     for r in res:
         pid = r['_id']['petugas_id']
         st = r['_id']['status']
@@ -1538,9 +1567,10 @@ async def rekap_absensi(bulan: str, current=Depends(get_current_user)):
             if st == 'hadir':
                 rekap[pid]['total_jam'] += r.get('total_jam', 0)
     
-    # Round total_jam for each officer to 2 decimal places
+    # Round total_jam and total_lembur for each officer to 2 decimal places
     for pid in rekap:
         rekap[pid]['total_jam'] = round(rekap[pid]['total_jam'], 2)
+        rekap[pid]['total_lembur'] = round(lembur_map.get(pid, 0.0), 2)
         
     return list(rekap.values())
 
