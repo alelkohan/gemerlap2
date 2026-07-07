@@ -418,7 +418,7 @@ class UploadImageReq(BaseModel):
     base64_image: str
 
 @api_router.post('/upload-image')
-async def upload_image(req: UploadImageReq, creds: HTTPAuthorizationCredentials = Depends(security)):
+async def upload_image(req: UploadImageReq, current=Depends(get_current_user)):
     try:
         res = cloudinary.uploader.upload(req.base64_image, folder="gemerlap")
         return {"url": res.get("secure_url")}
