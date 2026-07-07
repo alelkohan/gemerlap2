@@ -709,7 +709,7 @@ export default function AbsenScreen() {
             </View>
 
             <TouchableOpacity 
-              style={[styles.btn, { backgroundColor: Colors.warning, marginTop: 12, paddingVertical: 12 }]}
+              style={[styles.btn, { backgroundColor: Colors.info, marginTop: 12, paddingVertical: 12 }]}
               onPress={() => setLemburModalVisible(true)}
             >
               <Ionicons name="time" size={18} color="#fff" />
@@ -1151,7 +1151,7 @@ export default function AbsenScreen() {
                 <Text style={[sharedModal.btnText, { color: Colors.textSecondary }]}>Batal</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[sharedModal.btn, { backgroundColor: Colors.warning, flex: 1.4 }]}
+                style={[sharedModal.btn, { backgroundColor: Colors.info, flex: 1.4 }]}
                 onPress={handleSubmitLembur}
                 activeOpacity={0.8}
                 disabled={loadingLembur}
