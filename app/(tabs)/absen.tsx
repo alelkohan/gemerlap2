@@ -843,17 +843,31 @@ export default function AbsenScreen() {
                         Jam kerja tetap dihitung. Anda dapat meninggalkan area TPS. Untuk selesai istirahat, Anda harus berada kembali di area TPS.
                       </Text>
 
-                      <TouchableOpacity
-                        onPress={handleEndBreak}
-                        disabled={loadingAction}
-                        style={[styles.btn, { backgroundColor: Colors.success, marginBottom: 8 }]}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons name="play" size={20} color="#fff" />
-                        <Text style={styles.btnText}>
-                          {loadingAction ? "Memproses..." : "Selesai Istirahat (Kembali Kerja)"}
-                        </Text>
-                      </TouchableOpacity>
+                      <View style={{ flexDirection: "row", gap: 10, width: "100%", marginTop: 12 }}>
+                        <TouchableOpacity
+                          onPress={handleEndBreak}
+                          disabled={loadingAction}
+                          style={[styles.btn, { backgroundColor: Colors.success, flex: 1 }]}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="play" size={20} color="#fff" />
+                          <Text style={styles.btnText}>
+                            {loadingAction ? "Memproses..." : "Selesai"}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={handleCheckOut}
+                          disabled={loadingAction}
+                          style={[styles.btn, { backgroundColor: Colors.error, flex: 1 }]}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="log-out" size={20} color="#fff" />
+                          <Text style={styles.btnText}>
+                            {loadingAction ? "Memproses..." : "Check-out"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </>
                   ) : (
                     <>
@@ -874,31 +888,33 @@ export default function AbsenScreen() {
                         </View>
                       )}
 
-                      <TouchableOpacity
-                        onPress={handleStartBreak}
-                        disabled={loadingAction}
-                        style={[styles.btn, { backgroundColor: Colors.warning, marginBottom: 8 }]}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons name="cafe" size={20} color="#fff" />
-                        <Text style={styles.btnText}>
-                          {loadingAction ? "Memproses..." : "Mulai Istirahat"}
-                        </Text>
-                      </TouchableOpacity>
+                      <View style={{ flexDirection: "row", gap: 10, width: "100%", marginTop: 12 }}>
+                        <TouchableOpacity
+                          onPress={handleStartBreak}
+                          disabled={loadingAction}
+                          style={[styles.btn, { backgroundColor: Colors.primary, flex: 1 }]}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="cafe" size={20} color="#fff" />
+                          <Text style={styles.btnText}>
+                            {loadingAction ? "Memproses..." : "Istirahat"}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={handleCheckOut}
+                          disabled={loadingAction}
+                          style={[styles.btn, { backgroundColor: Colors.error, flex: 1 }]}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name="log-out" size={20} color="#fff" />
+                          <Text style={styles.btnText}>
+                            {loadingAction ? "Memproses..." : "Check-out"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </>
                   )}
-
-                  <TouchableOpacity
-                    onPress={handleCheckOut}
-                    disabled={loadingAction}
-                    style={[styles.btn, { backgroundColor: Colors.error }]}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="log-out" size={20} color="#fff" />
-                    <Text style={styles.btnText}>
-                      {loadingAction ? "Memproses..." : "Akhiri Kerja (Check-out)"}
-                    </Text>
-                  </TouchableOpacity>
                 </>
               ) : (
                 <>
