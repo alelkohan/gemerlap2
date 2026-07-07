@@ -26,6 +26,7 @@ export default function SlipGajiScreen() {
   const izin = parseInt(params.izin as string || "0");
   const sakit = parseInt(params.sakit as string || "0");
   const total_jam = parseFloat(params.total_jam as string || "0");
+  const targetJamSebulan = hadir * 8;
 
   const [extraJam, setExtraJam] = useState(0);
   const [deficitJam, setDeficitJam] = useState(0);
