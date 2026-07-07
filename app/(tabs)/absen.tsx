@@ -892,7 +892,7 @@ export default function AbsenScreen() {
                         <TouchableOpacity
                           onPress={handleStartBreak}
                           disabled={loadingAction}
-                          style={[styles.btn, { backgroundColor: Colors.primary, flex: 1 }]}
+                          style={[styles.btn, { backgroundColor: Colors.info, flex: 1 }]}
                           activeOpacity={0.8}
                         >
                           <Ionicons name="cafe" size={20} color="#fff" />
