@@ -1268,6 +1268,22 @@ async def get_attendance_status(current=Depends(get_current_user)):
     # Add active session's running duration if exists
     running_seconds = 0.0
     if active_session:
+        # Check and handle automatic break timeout (1 hour limit)
+        if active_session.get('is_break'):
+            break_start_str = active_session.get('break_start')
+            if break_start_str:
+                break_start = datetime.fromisoformat(break_start_str.replace('Z', '+00:00'))
+                elapsed = (datetime.now(timezone.utc) - break_start).total_seconds()
+                if elapsed > 3600.0:
+                    # Auto end the break
+                    await db.attendance_sessions.update_one(
+                        {'id': active_session['id']},
+                        {'$set': {'is_break': False, 'break_start': None, 'outside_since': None}}
+                    )
+                    active_session['is_break'] = False
+                    active_session['break_start'] = None
+                    active_session['outside_since'] = None
+
         check_in_time = datetime.fromisoformat(active_session['check_in'].replace('Z', '+00:00'))
         running_seconds = (datetime.now(timezone.utc) - check_in_time).total_seconds()
         
@@ -1297,6 +1313,88 @@ async def get_attendance_status(current=Depends(get_current_user)):
         'tanggal': tanggal_str,
         'daily_record': daily_record
     }
+
+
+@api_router.post('/absensi/break/start')
+async def start_break(current=Depends(get_current_user)):
+    petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
+    if not petugas:
+        raise HTTPException(status_code=400, detail='User tidak terdaftar sebagai petugas')
+        
+    petugas_id = petugas['id']
+    
+    active_session = await db.attendance_sessions.find_one({
+        'petugas_id': petugas_id,
+        'status': 'active'
+    })
+    if not active_session:
+        raise HTTPException(status_code=400, detail='Tidak ada sesi check-in aktif')
+        
+    if active_session.get('is_break'):
+        raise HTTPException(status_code=400, detail='Anda sudah dalam waktu istirahat')
+        
+    await db.attendance_sessions.update_one(
+        {'id': active_session['id']},
+        {'$set': {
+            'is_break': True,
+            'break_start': now_iso(),
+            'outside_since': None
+        }}
+    )
+    return {'message': 'Istirahat dimulai', 'break_start': now_iso()}
+
+
+@api_router.post('/absensi/break/end')
+async def end_break(req: CheckInRequest, current=Depends(get_current_user)):
+    petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
+    if not petugas:
+        raise HTTPException(status_code=400, detail='User tidak terdaftar sebagai petugas')
+        
+    petugas_id = petugas['id']
+    
+    active_session = await db.attendance_sessions.find_one({
+        'petugas_id': petugas_id,
+        'status': 'active'
+    })
+    if not active_session:
+        raise HTTPException(status_code=400, detail='Tidak ada sesi check-in aktif')
+        
+    if not active_session.get('is_break'):
+        raise HTTPException(status_code=400, detail='Anda tidak sedang dalam waktu istirahat')
+        
+    # Validate location against the assigned TPS
+    tps_id = active_session.get('tps_location_id')
+    tps_settings = None
+    if tps_id:
+        tps_settings = await db.tps_locations.find_one({'id': tps_id})
+        
+    if not tps_settings:
+        tps_locations = await db.tps_locations.find({}).to_list(100)
+        if not tps_locations:
+            raise HTTPException(status_code=500, detail='Pengaturan lokasi TPS belum dibuat oleh admin')
+        tps_settings = min(tps_locations, key=lambda t: calculate_distance(req.latitude, req.longitude, t['latitude'], t['longitude']))
+        
+    distance = calculate_distance(
+        req.latitude, req.longitude,
+        tps_settings['latitude'], tps_settings['longitude']
+    )
+    
+    is_inside = distance <= tps_settings['radius_meter']
+    if not is_inside:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Gagal mengakhiri istirahat. Anda berada di luar radius TPS. Jarak saat ini: {int(distance)} meter dari {tps_settings['nama']}."
+        )
+        
+    await db.attendance_sessions.update_one(
+        {'id': active_session['id']},
+        {'$set': {
+            'is_break': False,
+            'break_start': None,
+            'outside_since': None
+        }}
+    )
+    return {'message': 'Kembali bekerja'}
 
 
 @api_router.post('/absensi/check-in')
@@ -1434,6 +1532,28 @@ async def heartbeat(req: HeartbeatRequest, current=Depends(get_current_user)):
     })
     if not active_session:
         return {'status': 'inactive', 'message': 'Tidak ada sesi aktif'}
+
+    if active_session.get('is_break'):
+        break_start_str = active_session.get('break_start')
+        if break_start_str:
+            break_start = datetime.fromisoformat(break_start_str.replace('Z', '+00:00'))
+            elapsed = (datetime.now(timezone.utc) - break_start).total_seconds()
+            if elapsed <= 3600.0:  # 1 hour limit
+                return {
+                    'status': 'break',
+                    'distance_meter': 0.0,
+                    'seconds_left': int(max(0.0, 3600.0 - elapsed)),
+                    'message': 'Petugas sedang dalam waktu istirahat'
+                }
+            else:
+                # Auto end the break
+                await db.attendance_sessions.update_one(
+                    {'id': active_session['id']},
+                    {'$set': {'is_break': False, 'break_start': None, 'outside_since': None}}
+                )
+                active_session['is_break'] = False
+                active_session['break_start'] = None
+                active_session['outside_since'] = None
         
     tps_id = active_session.get('tps_location_id')
     tps_settings = None
