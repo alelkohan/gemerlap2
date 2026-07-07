@@ -1536,16 +1536,40 @@ async def rekap_absensi(bulan: str, current=Depends(get_current_user)):
     ]
     res = await db.absensi.aggregate(pipeline).to_list(10000)
 
-    # Aggregate approved lembur for this month
-    lembur_pipeline = [
-        {'$match': {'status': 'approved', 'tanggal': {'$regex': f'^{bulan}'}}},
-        {'$group': {
-            '_id': '$petugas_id',
-            'total_lembur': {'$sum': '$durasi_jam'}
-        }}
-    ]
-    lembur_res = await db.lembur.aggregate(lembur_pipeline).to_list(1000)
-    lembur_map = {r['_id']: r['total_lembur'] for r in lembur_res}
+    # Fetch all approved lembur for this month
+    approved_lemburs = await db.lembur.find({
+        'status': 'approved',
+        'tanggal': {'$regex': f'^{bulan}'}
+    }, {'_id': 0}).to_list(10000)
+
+    # Group approved lembur by petugas_id and tanggal
+    lembur_by_petugas = {}
+    for l in approved_lemburs:
+        pid = l['petugas_id']
+        dt = l['tanggal']
+        if pid not in lembur_by_petugas:
+            lembur_by_petugas[pid] = {}
+        lembur_by_petugas[pid][dt] = lembur_by_petugas[pid].get(dt, 0.0) + l.get('durasi_jam', 0.0)
+
+    # Fetch all attendances for this month
+    attendances = await db.absensi.find({
+        'status': 'hadir',
+        'tanggal': {'$regex': f'^{bulan}'}
+    }, {'_id': 0}).to_list(100000)
+
+    # Calculate actual performed lembur hours
+    performed_lembur_map = {}
+    for att in attendances:
+        pid = att['petugas_id']
+        dt = att['tanggal']
+        actual_jam = att.get('jam', 0.0)
+        
+        if pid in lembur_by_petugas and dt in lembur_by_petugas[pid]:
+            approved_lembur = lembur_by_petugas[pid][dt]
+            if actual_jam >= 8.0:
+                excess = actual_jam - 8.0
+                earned_lembur = min(approved_lembur, excess)
+                performed_lembur_map[pid] = performed_lembur_map.get(pid, 0.0) + earned_lembur
 
     # Exclude auditors from rekap
     auditor_users = await db.users.find({'role': 'auditor'}, {'_id': 0, 'id': 1}).to_list(1000)
@@ -1570,7 +1594,7 @@ async def rekap_absensi(bulan: str, current=Depends(get_current_user)):
     # Round total_jam and total_lembur for each officer to 2 decimal places
     for pid in rekap:
         rekap[pid]['total_jam'] = round(rekap[pid]['total_jam'], 2)
-        rekap[pid]['total_lembur'] = round(lembur_map.get(pid, 0.0), 2)
+        rekap[pid]['total_lembur'] = round(performed_lembur_map.get(pid, 0.0), 2)
         
     return list(rekap.values())
 
