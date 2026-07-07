@@ -184,8 +184,8 @@ const customModalStyles = StyleSheet.create({
   },
 });
 
-type Rekap = { petugas_id: string; nama: string; hadir: number; absen: number; izin: number; sakit: number; total_jam: number; gaji_status?: string };
-type DailyRecord = { tanggal: string; status: string; keterangan?: string; jam?: number; manual?: boolean };
+type Rekap = { petugas_id: string; nama: string; hadir: number; absen: number; izin: number; sakit: number; total_jam: number; total_lembur: number; gaji_status?: string };
+type DailyRecord = { tanggal: string; status: string; keterangan?: string; jam?: number; manual?: boolean; lembur_items?: any[] };
 
 export default function RekapAbsensiScreen() {
   const Colors = useColors();
@@ -382,7 +382,14 @@ export default function RekapAbsensiScreen() {
                       <Text style={{ fontSize: 10, color: Colors.success, fontWeight: "800" }}>LUNAS</Text>
                     </View>
                   )}
-                  <Text style={{ fontSize: 13, color: Colors.primary, fontWeight: "600" }}>{Number(r.total_jam || 0).toFixed(2)} jam kerja</Text>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={{ fontSize: 13, color: Colors.primary, fontWeight: "600" }}>{Number(r.total_jam || 0).toFixed(2)} jam kerja</Text>
+                    {Number(r.total_lembur || 0) > 0 && (
+                      <Text style={{ fontSize: 11, color: Colors.info, fontWeight: "700", marginTop: 1 }}>
+                        +{Number(r.total_lembur).toFixed(2)} jam lembur
+                      </Text>
+                    )}
+                  </View>
                 </View>
               </View>
               <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
@@ -520,6 +527,53 @@ export default function RekapAbsensiScreen() {
                           );
                         })
                       )}
+                    </View>
+                  )}
+
+                  {/* Overtime (Lembur) Section */}
+                  {rec.lembur_items && rec.lembur_items.length > 0 && (
+                    <View style={{ marginTop: 16 }}>
+                      <Text style={{ fontSize: 14, fontWeight: "800", color: Colors.text, marginBottom: 8, letterSpacing: -0.2 }}>
+                        Rincian Lembur
+                      </Text>
+                      {rec.lembur_items.map((item: any, idx: number) => {
+                        const statusColors = {
+                          pending: { color: Colors.warning, bg: Colors.warningBg, text: "PENDING" },
+                          approved: { color: Colors.success, bg: Colors.successBg, text: "DISETUJUI" },
+                          rejected: { color: Colors.error, bg: Colors.errorBg, text: "DITOLAK" }
+                        }[item.status as "pending" | "approved" | "rejected"] || { color: Colors.textSecondary, bg: Colors.borderLight, text: String(item.status).toUpperCase() };
+
+                        return (
+                          <View
+                            key={item.id || idx}
+                            style={{
+                              padding: 12,
+                              backgroundColor: Colors.surface,
+                              borderColor: Colors.borderLight,
+                              borderWidth: 1,
+                              borderRadius: 12,
+                              marginBottom: 8,
+                              gap: 4
+                            }}
+                          >
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                              <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.text }}>
+                                {Number(item.durasi_jam).toFixed(2)} jam lembur
+                              </Text>
+                              <View style={{ backgroundColor: statusColors.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                                <Text style={{ fontSize: 10, color: statusColors.color, fontWeight: "800" }}>
+                                  {statusColors.text}
+                                </Text>
+                              </View>
+                            </View>
+                            {item.alasan ? (
+                              <Text style={{ fontSize: 12, color: Colors.textSecondary, fontStyle: "italic", marginTop: 2 }}>
+                                Alasan: {item.alasan}
+                              </Text>
+                            ) : null}
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
                 </View>
