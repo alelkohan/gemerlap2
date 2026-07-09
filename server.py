@@ -2011,17 +2011,25 @@ async def delete_gaji(gid: str, current=Depends(admin_required)):
     gaji = await db.gaji.find_one({'id': gid})
     if not gaji:
         raise HTTPException(status_code=404, detail='Slip gaji tidak ditemukan')
-    
+
     if gaji.get('bukti_url'):
         delete_cloudinary_image(gaji['bukti_url'])
-    
-    # 1. Hapus transaksi keuangan terkait
+
+    # 1. Hapus transaksi terkait di keuangan
     if gaji.get('id_transaksi_keuangan'):
         await db.keuangan.delete_one({'id': gaji['id_transaksi_keuangan']})
-    
-    # 2. Hapus record gaji
+
+    # 2. Restore status kasbon terkait menjadi belum_lunas
+    kasbon_ids = gaji.get('kasbon_ids')
+    if kasbon_ids and len(kasbon_ids) > 0:
+        await db.kasbon.update_many(
+            {'id': {'$in': kasbon_ids}},
+            {'$set': {'status': 'belum_lunas'}, '$unset': {'slip_gaji_id': ""}}
+        )
+
+    # 3. Hapus record gaji
     await db.gaji.delete_one({'id': gid})
-    
+
     return {'message': 'Slip gaji dan transaksi keuangan terkait berhasil dihapus'}
 
 
