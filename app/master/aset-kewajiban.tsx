@@ -63,6 +63,7 @@ export default function AsetKewajibanScreen() {
   const [asetList, setAsetList] = useState<Aset[]>([]);
   const [hutangList, setHutangList] = useState<Hutang[]>([]);
   const [piutangList, setPiutangList] = useState<Piutang[]>([]);
+  const [kasbonList, setKasbonList] = useState<any[]>([]);
 
   // Modals visibility
   const [showAsetModal, setShowAsetModal] = useState(false);
@@ -111,6 +112,10 @@ export default function AsetKewajibanScreen() {
       } else {
         const data = await apiFetch<Piutang[]>("/piutang");
         setPiutangList(data || []);
+        
+        // Memuat kasbon petugas untuk dimasukkan ke bagian piutang
+        const kasbonData = await apiFetch<any[]>("/kasbon");
+        setKasbonList(kasbonData || []);
       }
     } catch (e: any) {
       Alert.alert("Gagal", e.message || "Gagal memuat data");
@@ -227,12 +232,12 @@ export default function AsetKewajibanScreen() {
           : await apiFetch<Piutang[]>("/piutang");
         
         if (activeTab === "hutang") {
-          setHutangList(refreshedItems);
-          const found = refreshedItems.find(x => x.id === bayarTargetId);
+          setHutangList(refreshedItems as Hutang[]);
+          const found = (refreshedItems as Hutang[]).find(x => x.id === bayarTargetId);
           setShowDetailModal(found || null);
         } else {
-          setPiutangList(refreshedItems as any);
-          const found = (refreshedItems as any).find((x: any) => x.id === bayarTargetId);
+          setPiutangList(refreshedItems as Piutang[]);
+          const found = (refreshedItems as Piutang[]).find((x: any) => x.id === bayarTargetId);
           setShowDetailModal(found || null);
         }
       }
@@ -312,7 +317,7 @@ export default function AsetKewajibanScreen() {
   }, [activeTab, asetList, hutangList, piutangList]);
 
   return (
-    <ScreenContainer title="Aset & Kewajiban">
+    <ScreenContainer title="Neraca">
       {/* Tab Selectors */}
       <View style={styles.tabRow}>
         {(["aset", "hutang", "piutang"] as Tab[]).map((tab) => (
@@ -391,7 +396,7 @@ export default function AsetKewajibanScreen() {
                         <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.text }}>{h.nama_kreditor}</Text>
                         <Badge
                           label={h.status === "lunas" ? "LUNAS" : "BELUM LUNAS"}
-                          variant={h.status === "lunas" ? "success" : "danger"}
+                          variant={h.status === "lunas" ? "success" : "error"}
                         />
                       </View>
                       <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 6 }}>
@@ -416,39 +421,94 @@ export default function AsetKewajibanScreen() {
 
         {/* Tab Piutang Content */}
         {activeTab === "piutang" && (
-          piutangList.length === 0 ? (
-            <EmptyState icon="people-outline" title="Belum ada catatan piutang" subtitle="Gunakan tombol + untuk menambah" />
-          ) : (
-            piutangList.map((p) => (
-              <TouchableOpacity key={p.id} onPress={() => setShowDetailModal(p)} activeOpacity={0.95}>
-                <Card style={{ marginBottom: 12 }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <View style={{ flex: 1, paddingRight: 8 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.text }}>{p.nama_debitur}</Text>
-                        <Badge
-                          label={p.status === "lunas" ? "LUNAS" : "BELUM LUNAS"}
-                          variant={p.status === "lunas" ? "success" : "danger"}
-                        />
+          <View style={{ gap: 20 }}>
+            {/* Sesi 1: Piutang Umum */}
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.textSecondary, marginBottom: 10, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Piutang Umum (Pihak Luar)
+              </Text>
+              {piutangList.length === 0 ? (
+                <EmptyState icon="people-outline" title="Belum ada catatan piutang" subtitle="Gunakan tombol + untuk menambah" />
+              ) : (
+                piutangList.map((p) => (
+                  <TouchableOpacity key={p.id} onPress={() => setShowDetailModal(p)} activeOpacity={0.95}>
+                    <Card style={{ marginBottom: 12 }}>
+                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.text }}>{p.nama_debitur}</Text>
+                            <Badge
+                              label={p.status === "lunas" ? "LUNAS" : "BELUM LUNAS"}
+                              variant={p.status === "lunas" ? "success" : "error"}
+                            />
+                          </View>
+                          <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 6 }}>
+                            Tanggal: {formatTanggalID(p.tanggal_piutang)}
+                          </Text>
+                          <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 6 }}>
+                            Awal: <Text style={{ fontWeight: "600", color: Colors.text }}>{rupiah(p.jumlah_piutang)}</Text>
+                          </Text>
+                        </View>
+                        <View style={{ alignItems: "flex-end" }}>
+                          <Text style={{ fontSize: 12, color: Colors.textSecondary }}>Sisa Piutang</Text>
+                          <Text style={{ fontSize: 16, fontWeight: "800", color: p.status === "lunas" ? Colors.success : Colors.warning, marginTop: 2 }}>
+                            {rupiah(p.sisa_piutang)}
+                          </Text>
+                        </View>
                       </View>
-                      <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 6 }}>
-                        Tanggal: {formatTanggalID(p.tanggal_piutang)}
-                      </Text>
-                      <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 6 }}>
-                        Awal: <Text style={{ fontWeight: "600", color: Colors.text }}>{rupiah(p.jumlah_piutang)}</Text>
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: "flex-end" }}>
-                      <Text style={{ fontSize: 12, color: Colors.textSecondary }}>Sisa Piutang</Text>
-                      <Text style={{ fontSize: 16, fontWeight: "800", color: p.status === "lunas" ? Colors.success : Colors.warning, marginTop: 2 }}>
-                        {rupiah(p.sisa_piutang)}
-                      </Text>
-                    </View>
-                  </View>
+                    </Card>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+
+            {/* Sesi 2: Piutang Kasbon Petugas */}
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.textSecondary, marginBottom: 10, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Piutang Kasbon (Petugas)
+              </Text>
+              {kasbonList.length === 0 ? (
+                <Card style={{ padding: 16, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ color: Colors.textSecondary, fontSize: 13 }}>Belum ada catatan kasbon petugas</Text>
                 </Card>
-              </TouchableOpacity>
-            ))
-          )
+              ) : (
+                kasbonList.map((k) => (
+                  <Card key={k.id} style={{ marginBottom: 12 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.text }}>{k.nama_petugas}</Text>
+                          <Badge
+                            label={k.status === "lunas" ? "LUNAS (Gajian)" : "BELUM LUNAS"}
+                            variant={k.status === "lunas" ? "success" : "error"}
+                          />
+                        </View>
+                        <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 6 }}>
+                          Tanggal Kasbon: {formatTanggalID(k.tanggal)}
+                        </Text>
+                        {k.status === "lunas" && k.slip_gaji_id && (
+                          <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 4 }}>
+                            Dilunasi via Gaji Periode: <Text style={{ fontWeight: "700", color: Colors.text }}>{k.slip_gaji_id}</Text>
+                          </Text>
+                        )}
+                        {k.keterangan && (
+                          <Text style={{ fontSize: 12, color: Colors.textTertiary, marginTop: 6, fontStyle: "italic" }}>
+                            "{k.keterangan}"
+                          </Text>
+                        )}
+                      </View>
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text style={{ fontSize: 12, color: Colors.textSecondary }}>Jumlah Kasbon</Text>
+                        <Text style={{ fontSize: 16, fontWeight: "800", color: k.status === "lunas" ? Colors.success : Colors.error, marginTop: 2 }}>
+                          {rupiah(k.nominal)}
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                ))
+              )}
+            </View>
+          </View>
         )}
       </ScrollView>
 
@@ -631,7 +691,7 @@ export default function AsetKewajibanScreen() {
             {showDetailModal && (
               <>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16, width: "100%" }}>
-                  <Text style={{ fontSize: 18, fontWeight: "850", color: Colors.text, letterSpacing: -0.3 }}>Detail Rekaman</Text>
+                  <Text style={{ fontSize: 18, fontWeight: "800", color: Colors.text, letterSpacing: -0.3 }}>Detail Rekaman</Text>
                   <TouchableOpacity onPress={() => setShowDetailModal(null)} style={{ padding: 4 }}>
                     <Ionicons name="close" size={24} color={Colors.textSecondary} />
                   </TouchableOpacity>
@@ -640,7 +700,7 @@ export default function AsetKewajibanScreen() {
                 <ScrollView style={{ width: "100%" }} showsVerticalScrollIndicator={false}>
                   <View style={{ marginBottom: 16 }}>
                     <Text style={{ fontSize: 11, fontWeight: "600", color: Colors.textSecondary, textTransform: "uppercase", letterSpacing: 0.5 }}>Nama Pihak</Text>
-                    <Text style={{ fontSize: 16, fontWeight: "750", color: Colors.text, marginTop: 4 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700", color: Colors.text, marginTop: 4 }}>
                       {activeTab === "hutang" ? showDetailModal.nama_kreditor : showDetailModal.nama_debitur}
                     </Text>
 
@@ -724,7 +784,7 @@ export default function AsetKewajibanScreen() {
         title="Hapus Rekaman?"
         message="Menghapus rekaman ini akan menghapus riwayat transaksinya dari kas harian secara otomatis."
         confirmText="Hapus"
-        cancelText="Batal"
+        danger
         onConfirm={handleDelete}
         onCancel={() => {
           setDeleteId(null);

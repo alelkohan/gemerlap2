@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 import { useAuth } from "@/src/lib/auth-context";
@@ -34,7 +34,7 @@ export default function MasterScreen() {
       title: "Operasional & Laporan",
       items: [
         { icon: "wallet-outline", label: "Keuangan", sub: "Transaksi & saldo TPS", path: "/keuangan", color: Colors.accent, auditorHidden: true },
-        { icon: "business-outline", label: "Aset & Kewajiban", sub: "Aset, hutang & piutang TPS", path: "/master/aset-kewajiban", color: Colors.info },
+        { icon: "mci:scale-balance", label: "Neraca", sub: "Aset, hutang & piutang TPS", path: "/master/aset-kewajiban", color: Colors.info },
         { icon: "cart-outline", label: "Penjualan Komoditas", sub: "Riwayat penjualan", path: "/master/penjualan", color: Colors.success },
         { icon: "document-outline", label: "Laporan", sub: "Cetak laporan PDF", path: "/master/laporan", color: Colors.primary, adminOnly: true },
       ]
@@ -91,7 +91,11 @@ export default function MasterScreen() {
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1 }}>
                         <View style={[styles.iconBox, { backgroundColor: m.color + "20" }]}>
-                          <Ionicons name={m.icon as any} size={24} color={m.color} />
+                          {m.icon.startsWith("mci:") ? (
+                            <MaterialCommunityIcons name={m.icon.replace("mci:", "") as any} size={24} color={m.color} />
+                          ) : (
+                            <Ionicons name={m.icon as any} size={24} color={m.color} />
+                          )}
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={{ fontSize: 15, fontWeight: "700", color: Colors.text }}>{m.label}</Text>
@@ -112,7 +116,7 @@ export default function MasterScreen() {
                 </Text>
                 <View style={{ gap: 10 }}>
                   {group.items.filter((m: any) => !(isAuditor && m.auditorHidden)).map((m) => {
-                    const locked = m.adminOnly && !hasAdminAccess && !m.petugasAllowed;
+                    const locked = m.adminOnly && !hasAdminAccess && !(m as any).petugasAllowed;
                     return (
                       <TouchableOpacity
                         key={m.path}
@@ -125,7 +129,11 @@ export default function MasterScreen() {
                           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1 }}>
                               <View style={[styles.iconBox, { backgroundColor: m.color + "20" }]}>
-                                <Ionicons name={m.icon as any} size={24} color={m.color} />
+                                {m.icon.startsWith("mci:") ? (
+                                  <MaterialCommunityIcons name={m.icon.replace("mci:", "") as any} size={24} color={m.color} />
+                                ) : (
+                                  <Ionicons name={m.icon as any} size={24} color={m.color} />
+                                )}
                               </View>
                               <View style={{ flex: 1 }}>
                                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

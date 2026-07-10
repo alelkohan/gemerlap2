@@ -36,6 +36,45 @@ type Stats = {
   bulan: string;
 };
 
+const getDaysUpToCurrent = (chartData: { tanggal: string; total: number }[], yearMonth: string) => {
+  if (!yearMonth) return [];
+  const parts = yearMonth.split("-");
+  if (parts.length < 2) return [];
+  const year = parseInt(parts[0]);
+  const month = parseInt(parts[1]);
+  
+  // Get today's local date
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth() + 1;
+  const todayDay = today.getDate();
+  
+  let endDay = 1;
+  
+  if (year < todayYear || (year === todayYear && month < todayMonth)) {
+    endDay = new Date(year, month, 0).getDate();
+  } else if (year === todayYear && month === todayMonth) {
+    endDay = todayDay;
+  } else {
+    endDay = new Date(year, month, 0).getDate();
+  }
+  
+  const filled: { tanggal: string; total: number }[] = [];
+  const dataMap = new Map<string, number>();
+  chartData.forEach(item => {
+    dataMap.set(item.tanggal, item.total);
+  });
+  
+  for (let day = 1; day <= endDay; day++) {
+    const dayStr = day.toString().padStart(2, "0");
+    const dateStr = `${yearMonth}-${dayStr}`;
+    const total = dataMap.get(dateStr) || 0;
+    filled.push({ tanggal: dateStr, total });
+  }
+  
+  return filled;
+};
+
 export default function HomeScreen() {
   const Colors = useColors();
   const styles = useMemo(() => baseStyles(Colors), [Colors]);
@@ -57,6 +96,11 @@ export default function HomeScreen() {
     variant: "primary" | "danger" | "outline";
     onConfirm?: () => void;
   }>({ visible: false, title: "", message: "", variant: "primary" });
+
+  const chartDataFilled = useMemo(() => {
+    return getDaysUpToCurrent(stats?.chart || [], bulan);
+  }, [stats?.chart, bulan]);
+
 
   const load = useCallback(async () => {
     try {
@@ -136,6 +180,25 @@ export default function HomeScreen() {
             label={user?.role === "admin" ? "Admin" : (user?.role === "auditor" ? "Auditor" : "Petugas")}
             variant={user?.role === "admin" ? "success" : (user?.role === "auditor" ? "warning" : "info")}
           />
+        </View>
+
+        {/* Global Period Filter */}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16, backgroundColor: Colors.surface, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: Colors.borderLight }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+            <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.text }}>Periode Data</Text>
+          </View>
+          <View style={styles.monthNav}>
+            <TouchableOpacity onPress={() => setBulan(addMonths(bulan, -1))} style={styles.navBtn}>
+              <Ionicons name="chevron-back" size={18} color={Colors.text} />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.text, minWidth: 100, textAlign: "center" }}>
+              {bulanLabel(bulan)}
+            </Text>
+            <TouchableOpacity onPress={() => setBulan(addMonths(bulan, 1))} style={styles.navBtn}>
+              <Ionicons name="chevron-forward" size={18} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Global Operational Switch */}
@@ -233,19 +296,8 @@ export default function HomeScreen() {
         <Card style={{ marginTop: 16 }}>
           <View style={styles.chartHeader}>
             <Text style={styles.sectionTitle}>Berat per Hari</Text>
-            <View style={styles.monthNav}>
-              <TouchableOpacity onPress={() => setBulan(addMonths(bulan, -1))} style={styles.navBtn}>
-                <Ionicons name="chevron-back" size={18} color={Colors.text} />
-              </TouchableOpacity>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.text, minWidth: 100, textAlign: "center" }}>
-                {bulanLabel(bulan)}
-              </Text>
-              <TouchableOpacity onPress={() => setBulan(addMonths(bulan, 1))} style={styles.navBtn}>
-                <Ionicons name="chevron-forward" size={18} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
           </View>
-          <BarChart data={stats?.chart || []} maxBobot={stats?.total_berat} />
+          <BarChart data={chartDataFilled} maxBobot={stats?.total_berat} />
         </Card>
 
         {/* Recent */}
@@ -323,10 +375,11 @@ function BarChart({ data }: { data: { tanggal: string; total: number }[]; maxBob
   // 16 padding outer + 16 card padding each side ~= 64
   const W = Math.max(260, Math.min(screenW - 64, 560));
   const H = 170;
-  const padding = { l: 32, r: 8, t: 16, b: 28 };
+  const padding = { l: 36, r: 8, t: 16, b: 28 };
   const chartW = W - padding.l - padding.r;
   const chartH = H - padding.t - padding.b;
   const Colors = useColors();
+
   if (data.length === 0) {
     return (
       <View style={{ height: 160, alignItems: "center", justifyContent: "center" }}>
@@ -335,12 +388,47 @@ function BarChart({ data }: { data: { tanggal: string; total: number }[]; maxBob
       </View>
     );
   }
+
   const max = Math.max(...data.map((d) => d.total), 1);
   const barW = Math.max(4, (chartW - data.length * 4) / data.length);
+
+  const midValue = max / 2;
+  const topY = padding.t;
+  const midY = padding.t + chartH / 2;
+  const bottomY = padding.t + chartH;
+
+  const showLabel = (index: number, totalCount: number, dayVal: number) => {
+    if (totalCount <= 12) {
+      return true;
+    }
+    if (totalCount <= 20) {
+      return index % 2 === 0;
+    }
+    return dayVal === 1 || dayVal % 5 === 0;
+  };
+
   return (
     <View style={{ alignItems: "center" }}>
       <Svg width={W} height={H}>
-        <Line x1={padding.l} y1={padding.t + chartH} x2={W - padding.r} y2={padding.t + chartH} stroke={Colors.border} strokeWidth={1} />
+        {/* Y-Axis Gridlines & Labels */}
+        <Line x1={padding.l} y1={topY} x2={W - padding.r} y2={topY} stroke={Colors.borderLight} strokeWidth={1} strokeDasharray="3 3" />
+        <SvgText x={4} y={topY + 4} fontSize={9} fill={Colors.textSecondary}>
+          {max.toFixed(0)}kg
+        </SvgText>
+
+        <Line x1={padding.l} y1={midY} x2={W - padding.r} y2={midY} stroke={Colors.borderLight} strokeWidth={1} strokeDasharray="3 3" />
+        <SvgText x={4} y={midY + 4} fontSize={9} fill={Colors.textSecondary}>
+          {midValue.toFixed(0)}kg
+        </SvgText>
+
+        <SvgText x={4} y={bottomY + 4} fontSize={9} fill={Colors.textSecondary}>
+          0kg
+        </SvgText>
+
+        {/* X-Axis Base Line */}
+        <Line x1={padding.l} y1={bottomY} x2={W - padding.r} y2={bottomY} stroke={Colors.border} strokeWidth={1} />
+
+        {/* Bars */}
         {data.map((d, i) => {
           const h = (d.total / max) * chartH;
           const x = padding.l + i * (barW + 4);
@@ -357,15 +445,24 @@ function BarChart({ data }: { data: { tanggal: string; total: number }[]; maxBob
             />
           );
         })}
-        <SvgText x={padding.l} y={padding.t + chartH + 16} fontSize={9} fill={Colors.textSecondary}>
-          {data[0]?.tanggal.slice(8)}
-        </SvgText>
-        <SvgText x={W - padding.r - 16} y={padding.t + chartH + 16} fontSize={9} fill={Colors.textSecondary}>
-          {data[data.length - 1]?.tanggal.slice(8)}
-        </SvgText>
-        <SvgText x={4} y={padding.t + 4} fontSize={9} fill={Colors.textSecondary}>
-          {max.toFixed(0)}kg
-        </SvgText>
+
+        {/* X-Axis Day Labels */}
+        {data.map((d, i) => {
+          const dayVal = parseInt(d.tanggal.slice(8));
+          if (!showLabel(i, data.length, dayVal)) return null;
+          return (
+            <SvgText
+              key={`lbl-${d.tanggal}`}
+              x={padding.l + i * (barW + 4) + barW / 2}
+              y={padding.t + chartH + 16}
+              fontSize={8}
+              fill={Colors.textSecondary}
+              textAnchor="middle"
+            >
+              {d.tanggal.slice(8)}
+            </SvgText>
+          );
+        })}
       </Svg>
     </View>
   );

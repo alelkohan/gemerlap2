@@ -660,7 +660,7 @@ export default function AbsenScreen() {
         onConfirm={handleDeleteStatus}
         onCancel={() => setShowDeleteStatus(false)}
         confirmText="Ya, Hapus"
-        confirmColor={Colors.error}
+        danger
       />
 
       <ConfirmModal
@@ -709,20 +709,11 @@ export default function AbsenScreen() {
             </View>
 
             <TouchableOpacity 
-              style={[
-                styles.btn, 
-                { 
-                  backgroundColor: "transparent", 
-                  borderWidth: 1, 
-                  borderColor: Colors.info, 
-                  marginTop: 12, 
-                  paddingVertical: 12 
-                }
-              ]}
+              style={[styles.btn, { backgroundColor: Colors.info, marginTop: 12, paddingVertical: 12 }]}
               onPress={() => setLemburModalVisible(true)}
             >
-              <Ionicons name="time" size={18} color={Colors.info} />
-              <Text style={[styles.btnText, { color: Colors.info, fontSize: 14 }]}>Ajukan Lembur</Text>
+              <Ionicons name="time" size={18} color="#fff" />
+              <Text style={[styles.btnText, { color: "#fff", fontSize: 14 }]}>Ajukan Lembur</Text>
             </TouchableOpacity>
 
             {lemburHistory.length > 0 && (

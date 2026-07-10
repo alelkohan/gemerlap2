@@ -136,7 +136,7 @@ export default function PetugasScreen() {
                   </>
                 )}
                 {isAdmin && p.user_id && (
-                  <View style={{ paddingHorizontal: 8 }} title="Terkunci oleh Sistem">
+                  <View style={{ paddingHorizontal: 8 }}>
                     <Ionicons name="lock-closed" size={16} color={Colors.textTertiary} />
                   </View>
                 )}
