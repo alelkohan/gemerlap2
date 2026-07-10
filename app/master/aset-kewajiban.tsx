@@ -829,7 +829,9 @@ const baseStyles = (Colors: any) => StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     paddingVertical: 16,
-    marginBottom: 16
+    marginBottom: 16,
+    elevation: 0,
+    shadowOpacity: 0
   },
   summaryLabel: {
     fontSize: 12,

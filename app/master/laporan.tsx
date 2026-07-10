@@ -193,7 +193,9 @@ export default function LaporanScreen() {
                 style={{
                   borderColor: jenis === j.id ? Colors.primary : Colors.borderLight,
                   borderWidth: jenis === j.id ? 2 : 1,
-                  backgroundColor: jenis === j.id ? Colors.successBg + "60" : Colors.surface,
+                  backgroundColor: jenis === j.id ? Colors.successBg : Colors.surface,
+                  elevation: jenis === j.id ? 0 : 1,
+                  shadowOpacity: jenis === j.id ? 0 : 0.04,
                 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
