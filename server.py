@@ -1743,8 +1743,8 @@ async def dashboard_stats(bulan: Optional[str] = None, current=Depends(get_curre
     # Jumlah catatan masuk bulan ini
     catatan_masuk = await db.timbangan.count_documents({'tanggal': {'$regex': f'^{bulan}'}})
 
-    # Belum dipilah (semua)
-    belum_dipilah = await db.timbangan.count_documents({'status_pilah': False})
+    # Belum dipilah bulan ini
+    belum_dipilah = await db.timbangan.count_documents({'status_pilah': False, 'tanggal': {'$regex': f'^{bulan}'}})
 
     # Bar chart: berat per hari bulan ini
     pipeline_chart = [
