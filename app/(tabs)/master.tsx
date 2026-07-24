@@ -19,32 +19,38 @@ export default function MasterScreen() {
 
   const isPetugas = user?.role === "petugas";
 
+  const isDark = Colors.bg === "#0f1419";
+  const customIndigo = isDark ? "#818cf8" : "#6366f1";
+  const customGray = isDark ? "#9ca3af" : "#6b7280";
+  const customCyan = isDark ? "#22d3ee" : "#06b6d4";
+  const customTeal = isDark ? "#2dd4bf" : "#0d9488";
+
   const groupedMenus = [
     {
       title: "Kepegawaian",
       items: [
         { icon: "people-outline", label: "Petugas", sub: "Data petugas TPS", path: "/master/petugas", color: Colors.info },
         { icon: "time-outline", label: "Persetujuan Lembur", sub: "Setujui pengajuan lembur", path: "/master/persetujuan-lembur", color: Colors.warning, adminOnly: true },
-        { icon: "wallet-outline", label: "Pinjaman / Kasbon", sub: "Kelola kasbon petugas", path: "/master/kasbon", color: Colors.error },
-        { icon: "stats-chart-outline", label: "Rekap Absensi & Gaji", sub: "Kehadiran dan cetak slip gaji", path: "/master/rekap-absensi", color: Colors.warning, adminOnly: true, petugasAllowed: true },
-        { icon: "shield-outline", label: "Kelola Akun", sub: "Akun & role pengguna", path: "/master/akun", color: Colors.error, adminOnly: true },
+        { icon: "mci:hand-coin", label: "Pinjaman / Kasbon", sub: "Kelola kasbon petugas", path: "/master/kasbon", color: Colors.success },
+        { icon: "stats-chart-outline", label: "Rekap Absensi & Gaji", sub: "Kehadiran dan cetak slip gaji", path: "/master/rekap-absensi", color: customIndigo, adminOnly: true, petugasAllowed: true },
+        { icon: "shield-outline", label: "Kelola Akun", sub: "Akun & role pengguna", path: "/master/akun", color: customGray, adminOnly: true },
       ]
     },
     {
       title: "Operasional & Laporan",
       items: [
-        { icon: "wallet-outline", label: "Keuangan", sub: "Transaksi & saldo TPS", path: "/keuangan", color: Colors.accent, auditorHidden: true },
+        { icon: "wallet-outline", label: "Keuangan", sub: "Transaksi & saldo TPS", path: "/keuangan", color: Colors.success, auditorHidden: true },
         { icon: "mci:scale-balance", label: "Neraca", sub: "Aset, hutang & piutang TPS", path: "/master/aset-kewajiban", color: Colors.info },
-        { icon: "cart-outline", label: "Penjualan Komoditas", sub: "Riwayat penjualan", path: "/master/penjualan", color: Colors.success },
-        { icon: "document-outline", label: "Laporan", sub: "Cetak laporan PDF", path: "/master/laporan", color: Colors.primary, adminOnly: true },
+        { icon: "cart-outline", label: "Penjualan Komoditas", sub: "Riwayat penjualan", path: "/master/penjualan", color: Colors.primary },
+        { icon: "document-outline", label: "Laporan", sub: "Cetak laporan PDF", path: "/master/laporan", color: customIndigo, adminOnly: true },
       ]
     },
     {
       title: "Data Pokok",
       items: [
-        { icon: "business-outline", label: "Unit", sub: "Kelola unit penugasan", path: "/master/unit", color: Colors.primary },
-        { icon: "leaf-outline", label: "Jenis Komoditas", sub: "Kelola jenis komoditas", path: "/master/jenis-sampah", color: Colors.success },
-        { icon: "location-outline", label: "Lokasi TPS", sub: "Kelola wilayah lokasi TPS", path: "/master/lokasi-tps", color: Colors.primary },
+        { icon: "business-outline", label: "Unit", sub: "Kelola unit penugasan", path: "/master/unit", color: customCyan },
+        { icon: "leaf-outline", label: "Jenis Komoditas", sub: "Kelola jenis komoditas", path: "/master/jenis-sampah", color: Colors.primary },
+        { icon: "location-outline", label: "Lokasi TPS", sub: "Kelola wilayah lokasi TPS", path: "/master/lokasi-tps", color: customTeal },
       ]
     }
   ];

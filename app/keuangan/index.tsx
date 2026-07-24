@@ -34,6 +34,7 @@ type Trx = {
   no_invoice: string;
   kategori?: string;
   bukti_url?: string;
+  user_nama?: string;
   _items?: any[];
 };
 
@@ -268,13 +269,13 @@ export default function KeuanganScreen({ asTab = false }: { asTab?: boolean }) {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontWeight: "700", color: Colors.text, fontSize: 14 }} numberOfLines={1}>
-                        {labelTipe(t.tipe)}
+                        {t.kategori === "Kasbon" ? `Pinjaman/Kasbon` : labelTipe(t.tipe)}
                       </Text>
                       <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
-                        {t.nama_pihak || t.kategori || t.keterangan || t.no_invoice}
+                        {t.kategori === "Kasbon" ? (t.nama_pihak || "Petugas") : (t.nama_pihak || t.kategori || t.keterangan || t.no_invoice)}
                       </Text>
                       <Text style={{ fontSize: 11, color: Colors.textTertiary, marginTop: 2 }}>
-                        {formatTanggalID(t.tanggal)} • {t.no_invoice}
+                        {formatTanggalID(t.tanggal)} • {t.no_invoice} • Oleh: {t.user_nama || "Admin"}
                       </Text>
                     </View>
                     <View style={{ alignItems: "flex-end" }}>

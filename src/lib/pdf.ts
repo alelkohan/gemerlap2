@@ -51,12 +51,34 @@ export async function printPdf(html: string, fileName: string) {
   }
   const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${baseStyles()}</style></head><body>${finalHtml}</body></html>`;
   try {
-    const { uri } = await Print.printToFileAsync({ html: fullHtml, base64: false });
     if (Platform.OS === "web") {
-      // On web, open in new tab
-      window.open(uri, "_blank");
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.left = "0";
+      iframe.style.top = "0";
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+      iframe.style.opacity = "0";
+      iframe.style.zIndex = "-1000";
+      iframe.style.pointerEvents = "none";
+      iframe.style.border = "none";
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow?.document || iframe.contentDocument;
+      if (doc) {
+        doc.open();
+        doc.write(fullHtml);
+        doc.close();
+
+        iframe.contentWindow?.focus();
+        setTimeout(() => {
+          iframe.contentWindow?.print();
+          document.body.removeChild(iframe);
+        }, 1000);
+      }
       return;
     }
+    const { uri } = await Print.printToFileAsync({ html: fullHtml, base64: false });
     
     // Rename the file to the desired fileName so it shows up correctly when sharing
     const newUri = FileSystem.cacheDirectory + fileName;
@@ -97,6 +119,7 @@ export async function generateInvoicePdf(trx: any) {
       <div class="row"><span class="label">Tanggal</span> <span class="value">${formatTanggalID(trx.tanggal)}</span></div>
       <div class="row"><span class="label">Pembeli</span> <span class="value">${trx.nama_pihak || "-"}</span></div>
       ${trx.keterangan ? `<div class="row"><span class="label">Keterangan</span> <span class="value">${trx.keterangan}</span></div>` : ""}
+      <div class="row"><span class="label">Dicatat Oleh</span> <span class="value">${trx.user_nama || "Admin"}</span></div>
       
       <div style="margin-top: 16px;">
         <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
@@ -120,6 +143,7 @@ export async function generateInvoicePdf(trx: any) {
       <div class="row"><span class="label">Tanggal</span> <span class="value">${formatTanggalID(trx.tanggal)}</span></div>
       <div class="row"><span class="label">Sumber Dana</span> <span class="value">${trx.nama_pihak || "-"}</span></div>
       ${trx.keterangan ? `<div class="row"><span class="label">Keterangan</span> <span class="value">${trx.keterangan}</span></div>` : ""}
+      <div class="row"><span class="label">Dicatat Oleh</span> <span class="value">${trx.user_nama || "Admin"}</span></div>
     `;
   } else if (isPengeluaran) {
     bodyRows = `
@@ -127,6 +151,7 @@ export async function generateInvoicePdf(trx: any) {
       <div class="row"><span class="label">Tanggal</span> <span class="value">${formatTanggalID(trx.tanggal)}</span></div>
       <div class="row"><span class="label">Kategori</span> <span class="value">${trx.kategori || "-"}</span></div>
       <div class="row"><span class="label">Keperluan</span> <span class="value">${trx.keterangan || "-"}</span></div>
+      <div class="row"><span class="label">Dicatat Oleh</span> <span class="value">${trx.user_nama || "Admin"}</span></div>
     `;
   }
 
@@ -619,3 +644,76 @@ export async function generateLaporanNeracaSkontroPdf(data: any, bulanLabelStr: 
   await printPdf(html, `Laporan-Neraca-Skontro-${bulanLabelStr.replace(/\s+/g, "-")}.pdf`);
 }
 
+export async function generateLaporanLabaRugiPdf(items: any[], judul: string, userName: string) {
+  // Aggregate total dari items bulanan
+  const iuran = items.reduce((s, r) => s + (r.iuran || 0), 0);
+  const penjualan = items.reduce((s, r) => s + (r.penjualan || 0), 0);
+  const lainMasuk = items.reduce((s, r) => s + (r.lain_masuk || 0), 0);
+  const upah = items.reduce((s, r) => s + (r.upah || 0), 0);
+  const residu = items.reduce((s, r) => s + (r.distribusi_residu || 0), 0);
+  const lainKeluar = items.reduce((s, r) => s + (r.lain_keluar || 0), 0);
+
+  const totalPendapatan = iuran + penjualan + lainMasuk;
+  const totalBeban = upah + residu + lainKeluar;
+  const labaRugi = totalPendapatan - totalBeban;
+
+  const isLaba = labaRugi >= 0;
+  const statusColor = isLaba ? '#10b981' : '#ef4444';
+  const statusText = isLaba ? 'LABA BERSIH OPERASIONAL' : 'RUGI BERSIH OPERASIONAL';
+
+  const html = `
+    ${HEADER_HTML}
+    <h1 class="title" style="margin-bottom:2px;">Laporan Laba Rugi Operasional</h1>
+    <div style="font-size:12px;color:#4b5563;margin-bottom:20px;">Periode: ${judul}</div>
+    
+    <div style="border: 1px solid #d1d5db; border-radius: 8px; padding: 16px; background: #fff; max-width: 600px; margin: 0 auto;">
+      <!-- PENDAPATAN -->
+      <h3 style="margin-top:0; border-bottom:2px solid #1a7a4a; padding-bottom:6px; color:#1a7a4a; font-size:14px; text-transform:uppercase;">I. PENDAPATAN OPERASIONAL</h3>
+      <div class="row" style="border-bottom:1px solid #f3f4f6; padding: 8px 0; display: flex; justify-content: space-between;">
+        <span style="color:#4b5563;">Retribusi Yayasan</span>
+        <span style="font-weight:600;">${rupiah(iuran)}</span>
+      </div>
+      <div class="row" style="border-bottom:1px solid #f3f4f6; padding: 8px 0; display: flex; justify-content: space-between;">
+        <span style="color:#4b5563;">Penjualan Komoditas Sampah</span>
+        <span style="font-weight:600;">${rupiah(penjualan)}</span>
+      </div>
+      <div class="row" style="border-bottom:1px solid #f3f4f6; padding: 8px 0; display: flex; justify-content: space-between;">
+        <span style="color:#4b5563;">Pemasukan Sumber Lain</span>
+        <span style="font-weight:600;">${rupiah(lainMasuk)}</span>
+      </div>
+      <div class="row" style="font-weight:800; margin-top:8px; display: flex; justify-content: space-between; font-size: 13px; color: #1a7a4a;">
+        <span>TOTAL PENDAPATAN</span>
+        <span>${rupiah(totalPendapatan)}</span>
+      </div>
+
+      <!-- BEBAN -->
+      <h3 style="margin-top:24px; border-bottom:2px solid #1a7a4a; padding-bottom:6px; color:#1a7a4a; font-size:14px; text-transform:uppercase;">II. BEBAN OPERASIONAL</h3>
+      <div class="row" style="border-bottom:1px solid #f3f4f6; padding: 8px 0; display: flex; justify-content: space-between;">
+        <span style="color:#4b5563;">Beban Gaji & Upah Petugas</span>
+        <span style="font-weight:600;">${rupiah(upah)}</span>
+      </div>
+      <div class="row" style="border-bottom:1px solid #f3f4f6; padding: 8px 0; display: flex; justify-content: space-between;">
+        <span style="color:#4b5563;">Beban Pengangkutan Residu TPA</span>
+        <span style="font-weight:600;">${rupiah(residu)}</span>
+      </div>
+      <div class="row" style="border-bottom:1px solid #f3f4f6; padding: 8px 0; display: flex; justify-content: space-between;">
+        <span style="color:#4b5563;">Beban Operasional Lain-lain</span>
+        <span style="font-weight:600;">${rupiah(lainKeluar)}</span>
+      </div>
+      <div class="row" style="font-weight:800; margin-top:8px; display: flex; justify-content: space-between; font-size: 13px; color: #1a7a4a;">
+        <span>TOTAL BEBAN OPERASIONAL</span>
+        <span>${rupiah(totalBeban)}</span>
+      </div>
+
+      <!-- LABA RUGI BERSIH -->
+      <div style="margin-top:32px; padding:14px; background:${isLaba ? '#d1fae5' : '#fee2e2'}; border-radius:6px; display:flex; justify-content:space-between; align-items:center; border:1px solid ${statusColor};">
+        <span style="color:#111827; font-weight:800; font-size: 13px;">${statusText}</span>
+        <span style="color:${statusColor}; font-weight:900; font-size:16px;">${rupiah(labaRugi)}</span>
+      </div>
+    </div>
+    
+    <div style="margin-top:32px;font-size:10px;color:#9ca3af;">Dicetak oleh: ${userName} pada ${formatTanggalID(new Date().toISOString().slice(0, 10))}</div>
+    ${FOOTER_HTML}
+  `;
+  await printPdf(html, `Laporan-Laba-Rugi-${judul.replace(/\s+/g, "-")}.pdf`);
+}

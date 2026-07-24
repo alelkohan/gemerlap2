@@ -91,6 +91,7 @@ export default function InvoiceScreen() {
               </>
             )}
             {trx.keterangan && !isPenjualan && <Row label="Keterangan" value={trx.keterangan} />}
+            <Row label="Dibuat Oleh" value={trx.user_nama || "Admin"} />
           </View>
 
           <View style={styles.totalBox}>

@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { ScrollView, View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenContainer } from "@/src/components/screen-header";
 import { Card, Button } from "@/src/components/ui";
@@ -10,9 +12,9 @@ import { useAuth } from "@/src/lib/auth-context";
 import { Colors } from "@/src/lib/theme";
 import { useColors } from "@/src/lib/theme-context";
 import { todayISO, formatTanggalID, currentBulan, bulanLabel } from "@/src/lib/format";
-import { generateLaporanTimbanganPdf, generateLaporanKeuanganPdf, generateLaporanAbsensiPdf, generateLaporanAbsensiDetailPdf, generateLaporanPenjualanPdf, generateLaporanNeracaMassaPdf, generateLaporanNeracaSkontroPdf } from "@/src/lib/pdf";
+import { generateLaporanTimbanganPdf, generateLaporanKeuanganPdf, generateLaporanAbsensiPdf, generateLaporanAbsensiDetailPdf, generateLaporanPenjualanPdf, generateLaporanNeracaMassaPdf, generateLaporanNeracaSkontroPdf, generateLaporanLabaRugiPdf } from "@/src/lib/pdf";
 
-type Jenis = "timbangan" | "keuangan" | "absensi" | "penjualan" | "neraca" | "neraca_skontro";
+type Jenis = "timbangan" | "keuangan" | "absensi" | "penjualan" | "neraca" | "neraca_skontro" | "laba_rugi";
 
 type JenisSampah = {
   id: string;
@@ -24,6 +26,8 @@ export default function LaporanScreen() {
   const Colors = useColors();
   const styles = useMemo(() => baseStyles(Colors), [Colors]);
   const { user } = useAuth();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [jenis, setJenis] = useState<Jenis>("timbangan");
   const [start, setStart] = useState(todayISO().slice(0, 8) + "01");
   const [end, setEnd] = useState(todayISO());
@@ -123,6 +127,31 @@ export default function LaporanScreen() {
     });
   };
 
+  const handlePreview = () => {
+    if (jenis === "penjualan" && selectedKomoditas.size === 0) {
+      Alert.alert("Perhatian", "Pilih minimal satu komoditas.");
+      return;
+    }
+    if (jenis === "absensi" && selectedPetugas.size === 0) {
+      Alert.alert("Perhatian", "Pilih minimal satu petugas.");
+      return;
+    }
+
+    router.push({
+      pathname: "/master/laporan-preview",
+      params: {
+        jenis,
+        start,
+        end,
+        bulan,
+        petugas_ids: Array.from(selectedPetugas).join(","),
+        jenis_ids: Array.from(selectedKomoditas).join(","),
+        semua_petugas: semuaDipilihPetugas ? "true" : "false",
+        semua_komoditas: semuaDipilih ? "true" : "false",
+      }
+    } as any);
+  };
+
   const generate = async () => {
     if (jenis === "penjualan" && selectedKomoditas.size === 0) {
       Alert.alert("Perhatian", "Pilih minimal satu komoditas.");
@@ -163,6 +192,9 @@ export default function LaporanScreen() {
       } else if (jenis === "neraca_skontro") {
         const data = await apiFetch<any>(`/laporan/neraca-skontro?bulan=${bulan}`);
         await generateLaporanNeracaSkontroPdf(data, bulanLabel(bulan), user?.nama || "User");
+      } else if (jenis === "laba_rugi") {
+        const items = await apiFetch<any[]>(`/laporan/neraca-keuangan?start=${start}&end=${end}`);
+        await generateLaporanLabaRugiPdf(items, `${formatTanggalID(start)} - ${formatTanggalID(end)}`, user?.nama || "User");
       }
     } catch (e: any) {
       Alert.alert("Error", e.message);
@@ -173,16 +205,22 @@ export default function LaporanScreen() {
 
   return (
     <ScreenContainer title="Laporan">
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom, 24) }}>
         <Text style={styles.label}>Jenis Laporan</Text>
-        <View style={{ gap: 8, marginBottom: 16 }}>
+        <ScrollView 
+          style={{ maxHeight: 440, marginBottom: 20 }} 
+          contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={true}
+        >
           {([
             { id: "timbangan", icon: "scale", label: "Laporan Timbangan", sub: "Rekap berat masuk per unit" },
             { id: "neraca", icon: "pie-chart", label: "Neraca Massa & Recovery Factor", sub: "Volume pilahan & efisiensi" },
             { id: "keuangan", icon: "wallet", label: "Laporan Keuangan", sub: "Pemasukan, pengeluaran, saldo" },
-            { id: "neraca_skontro", icon: "newspaper", label: "Laporan Neraca Skontro", sub: "Aktiva & pasiva (posisi keuangan)" },
+            { id: "neraca_skontro", icon: "mci:scale-balance", label: "Laporan Neraca Skontro", sub: "Aktiva & pasiva (posisi keuangan)" },
             { id: "penjualan", icon: "cart", label: "Laporan Penjualan Komoditas", sub: "Rekap penjualan per komoditas" },
             { id: "absensi", icon: "calendar", label: "Laporan Absensi", sub: "Rekap kehadiran petugas" },
+            { id: "laba_rugi", icon: "mci:trending-up", label: "Laporan Laba/Rugi", sub: "Analisis pendapatan & beban operasional" },
           ] as { id: Jenis; icon: any; label: string; sub: string }[]).map((j) => (
             <TouchableOpacity
               key={j.id}
@@ -204,7 +242,11 @@ export default function LaporanScreen() {
                     backgroundColor: jenis === j.id ? Colors.primary : Colors.borderLight,
                     alignItems: "center", justifyContent: "center",
                   }}>
-                    <Ionicons name={j.icon} size={22} color={jenis === j.id ? Colors.textOnPrimary : Colors.textSecondary} />
+                    {j.icon.startsWith("mci:") ? (
+                      <MaterialCommunityIcons name={j.icon.replace("mci:", "") as any} size={22} color={jenis === j.id ? Colors.textOnPrimary : Colors.textSecondary} />
+                    ) : (
+                      <Ionicons name={j.icon} size={22} color={jenis === j.id ? Colors.textOnPrimary : Colors.textSecondary} />
+                    )}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: "700", color: Colors.text, fontSize: 15 }}>{j.label}</Text>
@@ -215,7 +257,7 @@ export default function LaporanScreen() {
               </Card>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         {(jenis === "absensi" || jenis === "neraca_skontro") ? (
           <>
@@ -295,10 +337,14 @@ export default function LaporanScreen() {
             )}
           </>
         ) : (
-          <>
-            <DatePickerField label="Dari Tanggal" value={start} onChange={setStart} />
-            <DatePickerField label="Sampai Tanggal" value={end} onChange={setEnd} />
-          </>
+          <View style={{ flexDirection: "row", gap: 12, marginBottom: 10 }}>
+            <View style={{ flex: 1 }}>
+              <DatePickerField label="Dari Tanggal" value={start} onChange={setStart} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <DatePickerField label="Sampai Tanggal" value={end} onChange={setEnd} />
+            </View>
+          </View>
         )}
 
         {/* Filter Komoditas — hanya tampil saat penjualan */}
@@ -364,8 +410,13 @@ export default function LaporanScreen() {
           </View>
         )}
 
-        <View style={{ marginTop: 16 }}>
-          <Button title="Generate & Share PDF" icon="document-text" onPress={generate} loading={loading} />
+        <View style={{ marginTop: 16, flexDirection: "row", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Button title="Lihat Preview" icon="eye" onPress={handlePreview} variant="primary" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button title="Unduh PDF" icon="document-text" onPress={generate} loading={loading} variant="outline" />
+          </View>
         </View>
       </ScrollView>
     </ScreenContainer>

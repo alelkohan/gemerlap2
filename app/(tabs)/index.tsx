@@ -238,9 +238,11 @@ export default function HomeScreen() {
                 <Text style={{ fontSize: 11, color: Colors.textSecondary, marginBottom: 2 }}>Recovery Factor</Text>
                 <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.primary }}>{(neracaMassa?.recovery_factor || 0).toFixed(2)}%</Text>
               </View>
-              <View style={{ flex: 1, backgroundColor: Colors.success + '10', padding: 12, borderRadius: 12 }}>
-                <Text style={{ fontSize: 11, color: Colors.textSecondary, marginBottom: 2 }}>Laba Bulan Ini</Text>
-                <Text style={{ fontSize: 16, fontWeight: "800", color: Colors.success }} adjustsFontSizeToFit numberOfLines={1}>{rupiah(neracaKeuangan?.sisa || 0)}</Text>
+              <View style={{ flex: 1, backgroundColor: (neracaKeuangan?.sisa || 0) < 0 ? Colors.error + '10' : Colors.success + '10', padding: 12, borderRadius: 12 }}>
+                <Text style={{ fontSize: 11, color: Colors.textSecondary, marginBottom: 2 }}>
+                  {(neracaKeuangan?.sisa || 0) < 0 ? "Rugi Bulan Ini" : "Laba Bulan Ini"}
+                </Text>
+                <Text style={{ fontSize: 16, fontWeight: "800", color: (neracaKeuangan?.sisa || 0) < 0 ? Colors.error : Colors.success }} adjustsFontSizeToFit numberOfLines={1}>{rupiah(neracaKeuangan?.sisa || 0)}</Text>
               </View>
             </View>
             <View style={{ flexDirection: "row", marginTop: 12, borderTopWidth: 1, borderColor: Colors.borderLight, paddingTop: 12, gap: 4 }}>

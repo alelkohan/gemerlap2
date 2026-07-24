@@ -123,7 +123,7 @@ export default function KasbonScreen() {
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.petugasName}>{item.nama_petugas}</Text>
-                      <Text style={styles.dateText}>{formatTanggalID(item.tanggal)}</Text>
+                      <Text style={styles.dateText}>{formatTanggalID(item.tanggal)} • Oleh: {item.user_nama || "Admin"}</Text>
                       <Text style={styles.nominalText}>{rupiah(item.nominal)}</Text>
                       
                       {item.keterangan ? (

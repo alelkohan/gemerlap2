@@ -105,7 +105,11 @@ export default function SlipGajiScreen() {
         const calculatedDendaTelat = totalDeficitJam * 8300;
         const calculatedUangLembur = totalExtraJam * 11250;
         const calculatedBaseGaji = (hadir * 8) * 8300;
-        const calculatedDendaAlpha = absen * 66400;
+        
+        // Jatah libur/absen adalah 3 hari sebulan. Potongan dihitung setelah ketidakhadiran ke-3.
+        const totalKetidakhadiran = absen + izin + sakit;
+        const hariTerpotong = Math.max(0, totalKetidakhadiran - 3);
+        const calculatedDendaAbsen = hariTerpotong * 66400;
 
         let gaji: any = null;
         try {
@@ -133,9 +137,9 @@ export default function SlipGajiScreen() {
           setGajiPokok(formatRupiahInput(Math.round(calculatedBaseGaji).toString()));
           setTunjangan(calculatedUangLembur > 0 ? formatRupiahInput(Math.round(calculatedUangLembur).toString()) : "");
           
-          let finalPotongan = calculatedDendaTelat + calculatedDendaAlpha + sumKasbon;
+          let finalPotongan = calculatedDendaTelat + calculatedDendaAbsen + sumKasbon;
           let ketList: string[] = [];
-          if (calculatedDendaAlpha > 0) ketList.push(`Potongan Alpha (${absen} hari)`);
+          if (calculatedDendaAbsen > 0) ketList.push(`Potongan Absen >3x (${hariTerpotong} hari)`);
           if (calculatedDendaTelat > 0) ketList.push(`Potongan Keterlambatan (${totalDeficitJam.toFixed(2)} jam)`);
           if (calculatedUangLembur > 0) ketList.push(`Termasuk lembur (${totalExtraJam.toFixed(2)} jam)`);
           if (sumKasbon > 0) {
@@ -327,8 +331,19 @@ export default function SlipGajiScreen() {
                 onChangeText={(val) => {
                   if (!isLunas) setPotongan(formatRupiahInput(val));
                 }}
+                onBlur={() => {
+                  const currentVal = Number(potongan.replace(/[^0-9-]/g, "")) || 0;
+                  if (currentVal < minPotonganKasbon) {
+                    setPotongan(formatRupiahInput(minPotonganKasbon.toString()));
+                  }
+                }}
                 editable={!isLunas}
               />
+              {!isLunas && (Number(potongan.replace(/[^0-9-]/g, "")) || 0) < minPotonganKasbon && (
+                <Text style={{ fontSize: 11, color: Colors.error, marginTop: -12, marginBottom: 12 }}>
+                  * Nominal potongan akan otomatis dikembalikan ke batas minimal kasbon (Rp {minPotonganKasbon.toLocaleString("id-ID")})
+                </Text>
+              )}
               {!isLunas && kasbonDetails.length > 0 && showKasbonWarning && (
                 <View style={{ backgroundColor: Colors.warningBg, padding: 12, borderRadius: 8, marginTop: -12, marginBottom: 16 }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>

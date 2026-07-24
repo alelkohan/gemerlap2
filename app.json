@@ -47,7 +47,17 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/icon.png",
+      "pwa": {
+        "name": "ASA Green",
+        "shortName": "ASAGreen",
+        "description": "Aplikasi Manajemen TPS ASA Green",
+        "themeColor": "#1a7a4a",
+        "backgroundColor": "#0c2813",
+        "display": "standalone",
+        "orientation": "portrait",
+        "icon": "./assets/images/icon.png"
+      }
     },
     "plugins": [
       "expo-router",
