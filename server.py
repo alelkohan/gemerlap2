@@ -930,6 +930,7 @@ async def get_keuangan_invoice(no_invoice: str, current=Depends(get_current_user
         'keterangan': base_doc.get('keterangan'),
         'bukti_url': base_doc.get('bukti_url'),
         'total': sum(d.get('total', 0) for d in docs),
+        'user_nama': base_doc.get('user_nama'),
         'items': docs
     }
 
@@ -1822,6 +1823,8 @@ async def create_kasbon(req: KasbonCreate, current=Depends(admin_required)):
         'total': req.nominal,
         'keterangan': keterangan_kas,
         'no_invoice': no_invoice,
+        'user_id': current['id'],
+        'user_nama': current.get('nama'),
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     await db.keuangan.insert_one(transaksi_doc)
@@ -2494,6 +2497,8 @@ async def create_aset(req: AsetCreate, current=Depends(admin_required)):
         'kategori': 'Peralatan',
         'keterangan': f"Pembelian Aset: {req.nama_aset}. {req.keterangan or ''}".strip(),
         'reference_id': aset_id,
+        'user_id': current['id'],
+        'user_nama': current.get('nama'),
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     await db.keuangan.insert_one(keuangan_doc)
@@ -2537,6 +2542,8 @@ async def create_hutang(req: HutangCreate, current=Depends(admin_required)):
         'total': req.jumlah_hutang,
         'keterangan': f"Penerimaan Hutang dari {req.nama_kreditor}. {req.keterangan or ''}".strip(),
         'reference_id': hutang_id,
+        'user_id': current['id'],
+        'user_nama': current.get('nama'),
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     await db.keuangan.insert_one(keuangan_doc)
@@ -2582,6 +2589,8 @@ async def bayar_hutang(id: str, req: HutangBayar, current=Depends(admin_required
         'keterangan': f"Pembayaran Cicilan Hutang ke {hutang['nama_kreditor']}. {req.keterangan or ''}".strip(),
         'reference_id': id,
         'cicilan_id': cicilan_item['id'],
+        'user_id': current['id'],
+        'user_nama': current.get('nama'),
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     await db.keuangan.insert_one(keuangan_doc)
@@ -2657,6 +2666,8 @@ async def bayar_piutang(id: str, req: PiutangBayar, current=Depends(admin_requir
         'keterangan': f"Pelunasan Piutang dari {piutang['nama_debitur']}. {req.keterangan or ''}".strip(),
         'reference_id': id,
         'cicilan_id': cicilan_item['id'],
+        'user_id': current['id'],
+        'user_nama': current.get('nama'),
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     await db.keuangan.insert_one(keuangan_doc)
