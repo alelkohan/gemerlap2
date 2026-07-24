@@ -1782,6 +1782,12 @@ async def get_all_kasbon(bulan: Optional[str] = None, current=Depends(admin_or_a
     for doc in docs:
         petugas = await db.petugas.find_one({'id': doc['petugas_id']})
         doc['nama_petugas'] = petugas['nama'] if petugas else 'Unknown'
+        # Get creator user_nama from keuangan or fallback to user_nama if stored
+        doc['user_nama'] = doc.get('user_nama') or 'Admin'
+        if doc.get('keuangan_id'):
+            keu = await db.keuangan.find_one({'id': doc['keuangan_id']}, {'_id': 0, 'user_nama': 1})
+            if keu and keu.get('user_nama'):
+                doc['user_nama'] = keu['user_nama']
     return docs
 
 @api_router.get('/kasbon/pending/{petugas_id}')
@@ -1837,6 +1843,8 @@ async def create_kasbon(req: KasbonCreate, current=Depends(admin_required)):
         'keterangan': req.keterangan,
         'status': 'belum_lunas',
         'keuangan_id': keuangan_id,
+        'user_id': current['id'],
+        'user_nama': current.get('nama'),
         'created_at': datetime.now(timezone.utc).isoformat()
     }
     await db.kasbon.insert_one(kasbon_doc)
