@@ -2783,6 +2783,11 @@ async def laporan_neraca_skontro(bulan: str, current=Depends(admin_or_auditor_re
 @app.on_event('startup')
 async def startup_event():
     await seed_data()
+    # Migration: Set user_nama to "Admin" for old transactions that don't have it
+    await db.keuangan.update_many(
+        {'$or': [{'user_nama': None}, {'user_nama': {'$exists': False}}]},
+        {'$set': {'user_nama': 'Admin'}}
+    )
     asyncio.create_task(check_daily_alpha())
 
 
