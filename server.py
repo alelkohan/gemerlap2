@@ -255,6 +255,7 @@ class UserCreate(BaseModel):
     role: Literal['admin', 'petugas', 'auditor']
     tanggal_bergabung: Optional[str] = None
     tanggal_keluar: Optional[str] = None
+    gaji_pokok: Optional[float] = None
 
 
 class UserUpdate(BaseModel):
@@ -264,6 +265,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     tanggal_bergabung: Optional[str] = None
     tanggal_keluar: Optional[str] = None
+    gaji_pokok: Optional[float] = None
 
 
 class UnitModel(BaseModel):
@@ -488,6 +490,7 @@ async def create_user(req: UserCreate, current=Depends(admin_required)):
         'role': req.role,
         'tanggal_bergabung': req.tanggal_bergabung,
         'tanggal_keluar': req.tanggal_keluar,
+        'gaji_pokok': req.gaji_pokok,
         'created_at': now_iso(),
     }
     await db.users.insert_one(user_doc)
@@ -541,6 +544,8 @@ async def update_user(user_id: str, req: UserUpdate, current=Depends(admin_requi
         upd['tanggal_keluar'] = req.tanggal_keluar
         petugas_upd['tgl_keluar'] = req.tanggal_keluar
         petugas_upd['status'] = not bool(req.tanggal_keluar)
+    if 'gaji_pokok' in update_data:
+        upd['gaji_pokok'] = req.gaji_pokok
 
     if not upd:
         raise HTTPException(status_code=400, detail='Nothing to update')
@@ -2795,6 +2800,14 @@ async def startup_event():
     await db.keuangan.update_many(
         {'$or': [{'user_nama': None}, {'user_nama': {'$exists': False}}]},
         {'$set': {'user_nama': 'Admin'}}
+    )
+    # Migration: Set default gaji_pokok for users who don't have it (except auditors)
+    await db.users.update_many(
+        {
+            'role': {'$ne': 'auditor'},
+            '$or': [{'gaji_pokok': None}, {'gaji_pokok': {'$exists': False}}]
+        },
+        {'$set': {'gaji_pokok': 1992000}} # Default Rp 1.992.000 (~Rp 8.300/jam based on 240 jam/sebulan)
     )
     asyncio.create_task(check_daily_alpha())
 
