@@ -1678,10 +1678,11 @@ async def check_out(req: CheckOutRequest, request: Request, current=Depends(get_
     durasi_seconds = (check_out_time - check_in_time).total_seconds()
     
     # Enforce minimum 30 minutes (1800 seconds) for manual check-out
-    # Bypass if X-Test-Bypass: true is set (for testing purposes)
+    # Bypass if X-Test-Bypass: true is set or if user is sopir
     is_test_bypass = request.headers.get("x-test-bypass") == "true"
+    is_sopir = current.get("role") == "sopir"
 
-    if durasi_seconds < 1800.0 and not is_test_bypass:
+    if durasi_seconds < 1800.0 and not is_test_bypass and not is_sopir:
         sisa_menit = math.ceil((1800.0 - durasi_seconds) / 60.0)
         raise HTTPException(
             status_code=400,
