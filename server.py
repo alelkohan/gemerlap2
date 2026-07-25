@@ -758,6 +758,14 @@ async def save_pengambilan_sampah(req: PengambilanSampahCreate, current=Depends(
     return {k: v for k, v in doc.items() if k != '_id'}
 
 
+@api_router.delete('/pengambilan-sampah/{id}')
+async def delete_pengambilan_sampah(id: str, current=Depends(get_current_user)):
+    res = await db.pengambilan_sampah.delete_one({'id': id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail='Data pengambilan sampah tidak ditemukan')
+    return {'message': 'deleted'}
+
+
 # ============== JENIS SAMPAH ==============
 @api_router.get('/jenis-sampah')
 async def list_jenis(current=Depends(get_current_user)):
