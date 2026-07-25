@@ -252,7 +252,7 @@ class UserCreate(BaseModel):
     nama: str
     no_hp: str
     password: str
-    role: Literal['admin', 'petugas', 'auditor']
+    role: Literal['admin', 'petugas', 'auditor', 'sopir']
     tanggal_bergabung: Optional[str] = None
     tanggal_keluar: Optional[str] = None
     gaji_pokok: Optional[float] = None
@@ -261,11 +261,32 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     nama: Optional[str] = None
     no_hp: Optional[str] = None
-    role: Optional[Literal['admin', 'petugas', 'auditor']] = None
+    role: Optional[Literal['admin', 'petugas', 'auditor', 'sopir']] = None
     password: Optional[str] = None
     tanggal_bergabung: Optional[str] = None
     tanggal_keluar: Optional[str] = None
     gaji_pokok: Optional[float] = None
+
+
+class PlanterBagCreate(BaseModel):
+    nama: str
+    unit_id: str
+    keterangan: Optional[str] = ""
+
+
+class PlanterBagUpdate(BaseModel):
+    nama: Optional[str] = None
+    unit_id: Optional[str] = None
+    keterangan: Optional[str] = None
+
+
+class PengambilanSampahCreate(BaseModel):
+    unit_id: str
+    tanggal: Optional[str] = None
+    planter_bag_diangkut_ids: List[str] = []
+    planter_bag_diturunkan_ids: List[str] = []
+    foto_url: Optional[str] = ""
+    catatan: Optional[str] = ""
 
 
 class UnitModel(BaseModel):
@@ -500,7 +521,7 @@ async def create_user(req: UserCreate, current=Depends(admin_required)):
         'id': user_doc['id'],
         'nama': user_doc['nama'],
         'no_hp': user_doc['no_hp'],
-        'jabatan': 'Admin' if user_doc['role'] == 'admin' else 'Petugas',
+        'jabatan': 'Admin' if user_doc['role'] == 'admin' else ('Sopir' if user_doc['role'] == 'sopir' else 'Petugas'),
         'tgl_bergabung': req.tanggal_bergabung or datetime.now().strftime('%Y-%m-%d'),
         'tgl_keluar': req.tanggal_keluar,
         'status': not bool(req.tanggal_keluar),
@@ -534,7 +555,7 @@ async def update_user(user_id: str, req: UserUpdate, current=Depends(admin_requi
         petugas_upd['no_hp'] = req.no_hp
     if 'role' in update_data:
         upd['role'] = req.role
-        petugas_upd['jabatan'] = 'Admin' if req.role == 'admin' else 'Petugas'
+        petugas_upd['jabatan'] = 'Admin' if req.role == 'admin' else ('Sopir' if req.role == 'sopir' else 'Petugas')
     if req.password:
         upd['password_hash'] = hash_password(req.password)
     if 'tanggal_bergabung' in update_data:
@@ -603,6 +624,138 @@ async def delete_unit(unit_id: str, current=Depends(get_current_user)):
     
     await db.units.delete_one({'id': unit_id})
     return {'message': 'deleted'}
+
+
+# ============== PLANTER BAGS ==============
+@api_router.get('/planter-bags')
+async def list_planter_bags(unit_id: Optional[str] = None, current=Depends(get_current_user)):
+    query = {}
+    if unit_id:
+        query['unit_id'] = unit_id
+    bags = await db.planter_bags.find(query, {'_id': 0}).sort('nama', 1).to_list(1000)
+    
+    unit_ids = list(set(b['unit_id'] for b in bags if b.get('unit_id')))
+    units = await db.units.find({'id': {'$in': unit_ids}}, {'_id': 0, 'id': 1, 'nama': 1}).to_list(1000)
+    unit_map = {u['id']: u['nama'] for u in units}
+    
+    for b in bags:
+        b['nama_unit'] = unit_map.get(b.get('unit_id'), '-')
+        
+    return bags
+
+
+@api_router.post('/planter-bags')
+async def create_planter_bag(req: PlanterBagCreate, current=Depends(admin_required)):
+    doc = {
+        'id': new_id(),
+        'nama': req.nama,
+        'unit_id': req.unit_id,
+        'keterangan': req.keterangan or '',
+        'created_at': now_iso()
+    }
+    await db.planter_bags.insert_one(doc)
+    return {k: v for k, v in doc.items() if k != '_id'}
+
+
+@api_router.put('/planter-bags/{id}')
+async def update_planter_bag(id: str, req: PlanterBagUpdate, current=Depends(admin_required)):
+    upd = req.dict(exclude_unset=True)
+    if not upd:
+        raise HTTPException(status_code=400, detail='Tidak ada data yang diubah')
+    upd['updated_at'] = now_iso()
+    res = await db.planter_bags.update_one({'id': id}, {'$set': upd})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail='Planter bag tidak ditemukan')
+    return {'message': 'updated'}
+
+
+@api_router.delete('/planter-bags/{id}')
+async def delete_planter_bag(id: str, current=Depends(admin_required)):
+    res = await db.planter_bags.delete_one({'id': id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail='Planter bag tidak ditemukan')
+    return {'message': 'deleted'}
+
+
+# ============== PENGAMBILAN SAMPAH (SOPIR) ==============
+@api_router.get('/pengambilan-sampah')
+async def list_pengambilan_sampah(tanggal: Optional[str] = None, petugas_id: Optional[str] = None, current=Depends(get_current_user)):
+    query = {}
+    if tanggal:
+        query['tanggal'] = tanggal
+    if petugas_id:
+        query['petugas_id'] = petugas_id
+    elif current['role'] == 'sopir':
+        petugas = await db.petugas.find_one({'user_id': current['id']})
+        if petugas:
+            query['petugas_id'] = petugas['id']
+
+    logs = await db.pengambilan_sampah.find(query, {'_id': 0}).sort([('created_at', -1)]).to_list(1000)
+    
+    unit_ids = list(set(l['unit_id'] for l in logs if l.get('unit_id')))
+    units = await db.units.find({'id': {'$in': unit_ids}}, {'_id': 0, 'id': 1, 'nama': 1}).to_list(1000)
+    unit_map = {u['id']: u['nama'] for u in units}
+    
+    pb_ids = []
+    for l in logs:
+        pb_ids.extend(l.get('planter_bag_diangkut_ids', []))
+        pb_ids.extend(l.get('planter_bag_diturunkan_ids', []))
+    pb_ids = list(set(pb_ids))
+    pbs = await db.planter_bags.find({'id': {'$in': pb_ids}}, {'_id': 0, 'id': 1, 'nama': 1}).to_list(1000)
+    pb_map = {p['id']: p['nama'] for p in pbs}
+
+    for l in logs:
+        l['nama_unit'] = unit_map.get(l.get('unit_id'), '-')
+        l['diangkut_items'] = [{'id': p_id, 'nama': pb_map.get(p_id, p_id)} for p_id in l.get('planter_bag_diangkut_ids', [])]
+        l['diturunkan_items'] = [{'id': p_id, 'nama': pb_map.get(p_id, p_id)} for p_id in l.get('planter_bag_diturunkan_ids', [])]
+
+    return logs
+
+
+@api_router.post('/pengambilan-sampah')
+async def save_pengambilan_sampah(req: PengambilanSampahCreate, current=Depends(get_current_user)):
+    petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
+    if not petugas:
+        raise HTTPException(status_code=400, detail='Akun ini tidak memiliki profil petugas')
+
+    wib_today = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime('%Y-%m-%d')
+    tanggal = req.tanggal or wib_today
+
+    existing = await db.pengambilan_sampah.find_one({
+        'petugas_id': petugas['id'],
+        'unit_id': req.unit_id,
+        'tanggal': tanggal
+    })
+
+    if existing:
+        upd = {
+            'planter_bag_diangkut_ids': req.planter_bag_diangkut_ids,
+            'planter_bag_diturunkan_ids': req.planter_bag_diturunkan_ids,
+            'updated_at': now_iso()
+        }
+        if req.foto_url:
+            upd['foto_url'] = req.foto_url
+        if req.catatan is not None:
+            upd['catatan'] = req.catatan
+        await db.pengambilan_sampah.update_one({'id': existing['id']}, {'$set': upd})
+        doc = await db.pengambilan_sampah.find_one({'id': existing['id']}, {'_id': 0})
+    else:
+        doc = {
+            'id': new_id(),
+            'tanggal': tanggal,
+            'petugas_id': petugas['id'],
+            'petugas_nama': petugas['nama'],
+            'unit_id': req.unit_id,
+            'planter_bag_diangkut_ids': req.planter_bag_diangkut_ids,
+            'planter_bag_diturunkan_ids': req.planter_bag_diturunkan_ids,
+            'foto_url': req.foto_url or '',
+            'catatan': req.catatan or '',
+            'created_at': now_iso(),
+            'updated_at': now_iso()
+        }
+        await db.pengambilan_sampah.insert_one(doc)
+
+    return {k: v for k, v in doc.items() if k != '_id'}
 
 
 # ============== JENIS SAMPAH ==============
