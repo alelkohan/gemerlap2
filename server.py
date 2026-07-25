@@ -712,6 +712,30 @@ async def list_pengambilan_sampah(tanggal: Optional[str] = None, petugas_id: Opt
     return logs
 
 
+@api_router.get('/pengambilan-sampah/prev-diangkut')
+async def get_prev_diangkut(unit_id: str, tanggal: Optional[str] = None, current=Depends(get_current_user)):
+    wib_today = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime('%Y-%m-%d')
+    target_date = tanggal or wib_today
+
+    prev = await db.pengambilan_sampah.find_one(
+        {
+            'unit_id': unit_id,
+            'tanggal': {'$lt': target_date}
+        },
+        {'_id': 0},
+        sort=[('tanggal', -1), ('created_at', -1)]
+    )
+
+    if prev and prev.get('planter_bag_diangkut_ids'):
+        pb_ids = prev.get('planter_bag_diangkut_ids', [])
+    else:
+        all_pbs = await db.planter_bags.find({'unit_id': unit_id}, {'_id': 0, 'id': 1}).to_list(1000)
+        pb_ids = [p['id'] for p in all_pbs]
+
+    pbs = await db.planter_bags.find({'id': {'$in': pb_ids}}, {'_id': 0}).to_list(1000)
+    return pbs
+
+
 @api_router.post('/pengambilan-sampah')
 async def save_pengambilan_sampah(req: PengambilanSampahCreate, current=Depends(get_current_user)):
     petugas = await get_petugas_for_user(current['id'], ignore_auditors=True)
