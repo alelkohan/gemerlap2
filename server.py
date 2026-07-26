@@ -1886,9 +1886,9 @@ async def rekap_absensi(bulan: str, current=Depends(get_current_user)):
     # Exclude auditors from rekap
     auditor_users = await db.users.find({'role': 'auditor'}, {'_id': 0, 'id': 1}).to_list(1000)
     auditor_ids = {u['id'] for u in auditor_users}
-    # Group by petugas_id
+    petugas_list = await db.petugas.find({'status': True}, {'_id': 0}).to_list(1000)
     user_map = {u['id']: u.get('role', 'petugas') for u in await db.users.find({}, {'_id': 0, 'id': 1, 'role': 1}).to_list(1000)}
-
+    rekap = {}
     for p in petugas_list:
         pid = p['id']
         # Skip auditors
