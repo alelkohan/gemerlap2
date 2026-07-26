@@ -1887,14 +1887,26 @@ async def rekap_absensi(bulan: str, current=Depends(get_current_user)):
     auditor_users = await db.users.find({'role': 'auditor'}, {'_id': 0, 'id': 1}).to_list(1000)
     auditor_ids = {u['id'] for u in auditor_users}
     # Group by petugas_id
-    petugas_list = await db.petugas.find({'status': True}, {'_id': 0}).to_list(1000)
-    rekap = {}
+    user_map = {u['id']: u.get('role', 'petugas') for u in await db.users.find({}, {'_id': 0, 'id': 1, 'role': 1}).to_list(1000)}
+
     for p in petugas_list:
         pid = p['id']
         # Skip auditors
         if pid in auditor_ids or p.get('user_id') in auditor_ids:
             continue
-        rekap[pid] = {'petugas_id': pid, 'nama': p['nama'], 'hadir': 0, 'absen': 0, 'izin': 0, 'sakit': 0, 'total_jam': 0, 'total_lembur': 0}
+        role_val = user_map.get(p.get('user_id'), 'sopir' if p.get('jabatan') == 'Sopir' else 'petugas')
+        rekap[pid] = {
+            'petugas_id': pid,
+            'nama': p['nama'],
+            'jabatan': p.get('jabatan', ''),
+            'role': role_val,
+            'hadir': 0,
+            'absen': 0,
+            'izin': 0,
+            'sakit': 0,
+            'total_jam': 0,
+            'total_lembur': 0
+        }
     for r in res:
         pid = r['_id']['petugas_id']
         st = r['_id']['status']
