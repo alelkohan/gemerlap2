@@ -679,16 +679,13 @@ async def delete_planter_bag(id: str, current=Depends(admin_required)):
 
 # ============== PENGAMBILAN SAMPAH (SOPIR) ==============
 @api_router.get('/pengambilan-sampah')
-async def list_pengambilan_sampah(tanggal: Optional[str] = None, petugas_id: Optional[str] = None, current=Depends(get_current_user)):
-    query = {}
-    if tanggal:
-        query['tanggal'] = tanggal
+async def list_pengambilan_sampah(tanggal: Optional[str] = None, unit_id: Optional[str] = None, petugas_id: Optional[str] = None, current=Depends(get_current_user)):
+    wib_today = (datetime.now(timezone.utc) + timedelta(hours=7)).strftime('%Y-%m-%d')
+    query = {'tanggal': tanggal or wib_today}
+    if unit_id:
+        query['unit_id'] = unit_id
     if petugas_id:
         query['petugas_id'] = petugas_id
-    elif current['role'] == 'sopir':
-        petugas = await db.petugas.find_one({'user_id': current['id']})
-        if petugas:
-            query['petugas_id'] = petugas['id']
 
     logs = await db.pengambilan_sampah.find(query, {'_id': 0}).sort([('created_at', -1)]).to_list(1000)
     
