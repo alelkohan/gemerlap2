@@ -764,6 +764,15 @@ async def save_pengambilan_sampah(req: PengambilanSampahCreate, current=Depends(
         await db.pengambilan_sampah.update_one({'id': existing['id']}, {'$set': upd})
         doc = await db.pengambilan_sampah.find_one({'id': existing['id']}, {'_id': 0})
     else:
+        # Require officer to have checked in at TPS today before creating a new pickup record
+        active_sess = await db.attendance_sessions.find_one({'petugas_id': petugas['id'], 'status': 'active'})
+        daily_rec = await db.absensi.find_one({'petugas_id': petugas['id'], 'tanggal': tanggal, 'status': 'hadir'})
+        if not active_sess and not daily_rec:
+            raise HTTPException(
+                status_code=400,
+                detail='Silakan Check-in TPS terlebih dahulu sebelum mencatat pengambilan sampah.'
+            )
+
         doc = {
             'id': new_id(),
             'tanggal': tanggal,
