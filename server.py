@@ -2532,6 +2532,80 @@ async def laporan_penjualan(start: str, end: str, jenis_ids: str = None, current
     return {'items': items, 'summary': list(summary.values())}
 
 
+
+# ============== PENGATURAN ==============
+@api_router.get("/pengaturan")
+async def get_pengaturan(user: dict = Depends(get_current_user)):
+    docs = await db.pengaturan.find({}).to_list(None)
+    result = {}
+    for d in docs:
+        result[d['key']] = d['value']
+    if 'tarif_lembur' not in result:
+        result['tarif_lembur'] = 11000
+    return result
+
+@api_router.post("/pengaturan")
+async def save_pengaturan(req: Request, user: dict = Depends(get_current_user)):
+    if user['role'] != 'admin':
+        raise HTTPException(status_code=403, detail='Hanya admin')
+    body = await req.json()
+    for k, v in body.items():
+        await db.pengaturan.update_one({'key': k}, {'$set': {'value': v, 'updated_at': now_iso()}}, upsert=True)
+    return {'message': 'Pengaturan disimpan'}
+
+
+
+# ============== LIVE PANTAUAN ==============
+@api_router.get("/live-pantauan")
+async def get_live_pantauan(user: dict = Depends(get_current_user)):
+    if user['role'] != 'admin':
+        raise HTTPException(status_code=403, detail='Hanya admin')
+        
+    wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
+    
+    petugas_list = await db.petugas.find({'status': True}).to_list(None)
+    
+    result = []
+    for p in petugas_list:
+        # Get latest session
+        latest_session = await db.attendance_sessions.find_one(
+            {'petugas_id': p['id'], 'tanggal': wib_today},
+            sort=[('created_at', -1)]
+        )
+        
+        status = 'belum_hadir'
+        jam_masuk = '-'
+        if latest_session:
+            if latest_session['status'] == 'in_progress':
+                status = 'bekerja'
+            elif latest_session['status'] == 'on_break':
+                status = 'istirahat'
+            elif latest_session['status'] in ['completed', 'auto_checked_out']:
+                status = 'selesai'
+                
+            jam_masuk = latest_session.get('check_in_time', '-')
+            
+        lokasi_terakhir = '-'
+        if p.get('jabatan', '').lower() == 'sopir':
+            latest_pickup = await db.pengambilan_sampah.find_one(
+                {'petugas_id': p['id'], 'tanggal': wib_today},
+                sort=[('created_at', -1)]
+            )
+            if latest_pickup:
+                lokasi_terakhir = f"{latest_pickup.get('nama_unit', '-')} ({latest_pickup.get('waktu_jemput', '-')})"
+                
+        result.append({
+            'id': p['id'],
+            'nama': p['nama'],
+            'jabatan': p['jabatan'],
+            'status': status,
+            'jam_masuk': jam_masuk,
+            'lokasi_terakhir': lokasi_terakhir
+        })
+        
+    return result
+
+
 # ============== ROOT ==============
 @api_router.get('/')
 async def root():
