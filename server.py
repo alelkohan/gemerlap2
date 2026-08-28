@@ -2568,9 +2568,16 @@ async def get_live_pantauan(user: dict = Depends(get_current_user)):
     # Deduplicate by id (which is user_id in this case) and filter by role
     petugas_dict = {}
     for p in petugas_list_raw:
+        uid = p.get('user_id') or p.get('id')
+        user_doc = await db.users.find_one({'id': uid})
+        if user_doc and user_doc.get('role') == 'auditor':
+            continue
+            
         jab = p.get('jabatan', '').lower().strip()
-        if jab in ['admin', 'petugas', 'sopir'] or p.get('role', '') in ['admin', 'petugas', 'sopir']:
-            petugas_dict[p['id']] = p
+        true_role = user_doc.get('role', '') if user_doc else ''
+        
+        if jab in ['admin', 'petugas', 'sopir'] or true_role in ['admin', 'petugas', 'sopir']:
+            petugas_dict[uid] = p
             
     petugas_list = list(petugas_dict.values())
     
