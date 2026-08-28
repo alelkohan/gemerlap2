@@ -2563,7 +2563,16 @@ async def get_live_pantauan(user: dict = Depends(get_current_user)):
         
     wib_today = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
     
-    petugas_list = await db.petugas.find({'status': True}).to_list(None)
+    petugas_list_raw = await db.petugas.find({'status': True}).to_list(None)
+    
+    # Deduplicate by id (which is user_id in this case) and filter by role
+    petugas_dict = {}
+    for p in petugas_list_raw:
+        jab = p.get('jabatan', '').lower().strip()
+        if jab in ['admin', 'petugas', 'sopir'] or p.get('role', '') in ['admin', 'petugas', 'sopir']:
+            petugas_dict[p['id']] = p
+            
+    petugas_list = list(petugas_dict.values())
     
     result = []
     for p in petugas_list:
@@ -2575,15 +2584,19 @@ async def get_live_pantauan(user: dict = Depends(get_current_user)):
         
         status = 'belum_hadir'
         jam_masuk = '-'
+        jam_keluar = '-'
+        
         if latest_session:
-            if latest_session['status'] == 'in_progress':
-                status = 'bekerja'
-            elif latest_session['status'] == 'on_break':
-                status = 'istirahat'
+            if latest_session['status'] == 'active':
+                if latest_session.get('is_break'):
+                    status = 'istirahat'
+                else:
+                    status = 'bekerja'
             elif latest_session['status'] in ['completed', 'auto_checked_out']:
                 status = 'selesai'
+                jam_keluar = latest_session.get('check_out', '-')
                 
-            jam_masuk = latest_session.get('check_in_time', '-')
+            jam_masuk = latest_session.get('check_in', '-')
             
         lokasi_terakhir = '-'
         if p.get('jabatan', '').lower() == 'sopir':
@@ -2592,7 +2605,15 @@ async def get_live_pantauan(user: dict = Depends(get_current_user)):
                 sort=[('created_at', -1)]
             )
             if latest_pickup:
-                lokasi_terakhir = f"{latest_pickup.get('nama_unit', '-')} ({latest_pickup.get('waktu_jemput', '-')})"
+                waktu_jemput = latest_pickup.get('waktu_jemput') or '-'
+                if 'T' in waktu_jemput:
+                    # Parse ISO to local time string if needed, or just use as is. Since we only want the time:
+                    try:
+                        time_part = waktu_jemput.split('T')[1][:5]
+                        waktu_jemput = time_part
+                    except:
+                        pass
+                lokasi_terakhir = f"{latest_pickup.get('nama_unit', '-')} ({waktu_jemput})"
                 
         result.append({
             'id': p['id'],
@@ -2600,8 +2621,13 @@ async def get_live_pantauan(user: dict = Depends(get_current_user)):
             'jabatan': p['jabatan'],
             'status': status,
             'jam_masuk': jam_masuk,
+            'jam_keluar': jam_keluar,
             'lokasi_terakhir': lokasi_terakhir
         })
+        
+    # Sort data: selesai, bekerja, istirahat, belum_hadir
+    status_order = {'selesai': 1, 'bekerja': 2, 'istirahat': 3, 'belum_hadir': 4}
+    result.sort(key=lambda x: (status_order.get(x['status'], 5), x['nama']))
         
     return result
 
